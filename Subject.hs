@@ -35,8 +35,10 @@ module Subject where
                  H.h2 "Wprowadź dane nowego przedmiotu"
                  label ! A.for "subject_id_label" $ "ID przedmiotu: " 
                  input ! type_ "text" ! A.id "subject_id" ! name "subject_id"
+                 H.br
                  label ! A.for "subject_name_label" $ "Nazwa przedmiotu: " 
                  input ! type_ "text" ! A.id "subject_name" ! name "subject_name"               
+                 H.br
                  input ! type_ "submit" ! value "Zapisz"
 
  addSubjectPost :: ServerPart Response
@@ -45,8 +47,8 @@ module Subject where
             subject_id <- lookText "subject_id"
             subject_name <- lookText "subject_name"
             ok $ template "form" $ do
-              H.p "Przedmiot dodany:"
-              H.p "ID:"
+              H.h2 "Przedmiot dodany"
+              H.p "Id przedmiotu:"
               H.p (toHtml subject_id)
               H.p "Nazwa przedmiotu:"
               H.p (toHtml subject_name)
