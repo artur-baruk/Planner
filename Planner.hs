@@ -32,6 +32,7 @@ import Model
 import SubjectView
 import GroupView
 import RoomView
+import SlotView
 import PlanView
 
 
@@ -57,6 +58,10 @@ route acid =
             , dirs "rooms/new"    $ newRoomView acid
             , dirs "rooms/view"  $ viewRoom acid
             , dirs "rooms"        $ showRooms acid
+            , dirs "slots/edit"  $ editSlotView acid
+            , dirs "slots/new"    $ newSlotView acid
+            , dirs "slots/view"  $ viewSlot acid
+            , dirs "slots"        $ showSlots acid
             , nullDir               >> mainPage acid
             ]
 

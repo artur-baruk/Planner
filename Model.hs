@@ -86,11 +86,11 @@ newtype SlotId = SlotId { unSlotId :: Integer }
    deriving (Eq, Ord, Data, Enum, Typeable, SafeCopy)
 data Slot = Slot
    { slotId  :: SlotId
-   , slotTime   :: UTCTime
+   , slotTime   :: Text
    }
    deriving (Eq, Ord, Data, Typeable)
 $(deriveSafeCopy 0 'base ''Slot)
-newtype SlotTime     = SlotTime UTCTime    deriving (Eq, Ord, Data, Typeable, SafeCopy)
+newtype SlotTime     = SlotTime Text    deriving (Eq, Ord, Data, Typeable, SafeCopy)
 instance Indexable Slot where
    empty = ixSet [ ixFun $ \bp -> [ slotId bp ]
                  , ixFun $ \bp -> [ SlotTime  $ slotTime bp  ]
@@ -133,6 +133,8 @@ data Planner = Planner
     , rooms      :: IxSet Room
     , nextSlotId :: SlotId
     , slots      :: IxSet Slot
+    , nextEntryId :: EntryId
+    , entrys      :: IxSet Entry
     }
     deriving (Data, Typeable)
 
@@ -148,6 +150,8 @@ initialPlannerState =
          , rooms      = empty
          , nextSlotId = SlotId 1
          , slots      = empty
+         , nextEntryId = EntryId 1
+         , entrys      = empty
          }
 
 -------------------------------------------------------
@@ -249,7 +253,7 @@ newSlot :: UTCTime -> Update Planner Slot
 newSlot pubDate =
     do b@Planner{..} <- get
        let slot = Slot { slotId = nextSlotId
-                       , slotTime  =  pubDate
+                       , slotTime  =  Text.empty
                        }
        put $ b { nextSlotId = succ nextSlotId
                , slots      = IxSet.insert slot slots
@@ -269,6 +273,38 @@ slotsAll ::  Query Planner [Slot]
 slotsAll  =
     do Planner{..} <- ask
        return $ IxSet.toList  $ slots
+
+-------------------------------------------------------
+---------Entry  functions
+-------------------------------------------------------
+-- | create a new, empty entry and add it to the database
+newEntry :: UTCTime -> Update Planner Entry
+newEntry pubDate =
+    do b@Planner{..} <- get
+       let entry = Entry { entryId = nextEntryId
+                       , subjectIdFk   = 0
+                       , groupIdFk   = 0
+                       , roomIdFk   = 0
+                       , slotIdFk   = 0
+                       }
+       put $ b { nextEntryId = succ nextEntryId
+               , entrys      = IxSet.insert entry entrys
+               }
+       return entry
+-- | update the entry in the database (indexed by EntryId)
+updateEntry :: Entry -> Update Planner ()
+updateEntry updatedEntry =
+    do b@Planner{..} <- get
+       put $ b { entrys = IxSet.updateIx (entryId updatedEntry) updatedEntry entrys
+               }
+entryById :: EntryId -> Query Planner (Maybe Entry)
+entryById pid =
+     do Planner{..} <- ask
+        return $ getOne $ entrys @= pid
+entrysAll ::  Query Planner [Entry]
+entrysAll  =
+    do Planner{..} <- ask
+       return $ IxSet.toList  $ entrys
 
 
 
@@ -292,4 +328,8 @@ $(makeAcidic ''Planner
   , 'updateSlot
   , 'slotById
   , 'slotsAll
+  , 'newEntry
+  , 'updateEntry
+  , 'entryById
+  , 'entrysAll
   ])
