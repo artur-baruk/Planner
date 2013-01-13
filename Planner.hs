@@ -27,7 +27,7 @@ import Text.Blaze.Html5 (Html, (!), a, form, input, p, toHtml, label)
 import Text.Blaze.Html5.Attributes (action, enctype, href, name, size, type_, value)
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
-newtype PostId = PostId { unPostId :: Integer }
+newtype SubjectId = SubjectId { unSubjectId :: Integer }
     deriving (Eq, Ord, Data, Enum, Typeable, SafeCopy)
 data Status =
     Draft
@@ -35,8 +35,8 @@ data Status =
     deriving (Eq, Ord, Data, Typeable)
 
 $(deriveSafeCopy 0 'base ''Status)
-data Post = Post
-    { postId  :: PostId
+data Subject = Subject
+    { subjectId  :: SubjectId
     , title   :: Text
     , author  :: Text
     , body    :: Text
@@ -46,13 +46,13 @@ data Post = Post
     }
     deriving (Eq, Ord, Data, Typeable)
 
-$(deriveSafeCopy 0 'base ''Post)
+$(deriveSafeCopy 0 'base ''Subject)
 newtype Title     = Title Text    deriving (Eq, Ord, Data, Typeable, SafeCopy)
 newtype Author    = Author Text   deriving (Eq, Ord, Data, Typeable, SafeCopy)
 newtype Tag       = Tag Text      deriving (Eq, Ord, Data, Typeable, SafeCopy)
 newtype WordCount = WordCount Int deriving (Eq, Ord, Data, Typeable, SafeCopy)
-instance Indexable Post where
-    empty = ixSet [ ixFun $ \bp -> [ postId bp ]
+instance Indexable Subject where
+    empty = ixSet [ ixFun $ \bp -> [ subjectId bp ]
                   , ixFun $ \bp -> [ Title  $ title bp  ]
                   , ixFun $ \bp -> [ Author $ author bp ]
                   , ixFun $ \bp -> [ status bp ]
@@ -62,8 +62,8 @@ instance Indexable Post where
                   ]
 
 data Blog = Blog
-    { nextPostId :: PostId
-    , posts      :: IxSet Post
+    { nextSubjectId :: SubjectId
+    , subjects      :: IxSet Subject
     }
     deriving (Data, Typeable)
 
@@ -71,14 +71,14 @@ $(deriveSafeCopy 0 'base ''Blog)
 
 initialBlogState :: Blog
 initialBlogState =
-    Blog { nextPostId = PostId 1
-         , posts      = empty
+    Blog { nextSubjectId = SubjectId 1
+         , subjects      = empty
          }
--- | create a new, empty post and add it to the database
-newPost :: UTCTime -> Update Blog Post
-newPost pubDate =
+-- | create a new, empty subject and add it to the database
+newSubject :: UTCTime -> Update Blog Subject
+newSubject pubDate =
     do b@Blog{..} <- get
-       let post = Post { postId = nextPostId
+       let subject = Subject { subjectId = nextSubjectId
                        , title  = Text.empty
                        , author = Text.empty
                        , body   = Text.empty
@@ -86,29 +86,29 @@ newPost pubDate =
                        , status = Draft
                        , tags   = []
                        }
-       put $ b { nextPostId = succ nextPostId
-               , posts      = IxSet.insert post posts
+       put $ b { nextSubjectId = succ nextSubjectId
+               , subjects      = IxSet.insert subject subjects
                }
-       return post
--- | update the post in the database (indexed by PostId)
-updatePost :: Post -> Update Blog ()
-updatePost updatedPost =
+       return subject
+-- | update the subject in the database (indexed by SubjectId)
+updateSubject :: Subject -> Update Blog ()
+updateSubject updatedSubject =
     do b@Blog{..} <- get
-       put $ b { posts = IxSet.updateIx (postId updatedPost) updatedPost posts
+       put $ b { subjects = IxSet.updateIx (subjectId updatedSubject) updatedSubject subjects
                }
-postById :: PostId -> Query Blog (Maybe Post)
-postById pid =
+subjectById :: SubjectId -> Query Blog (Maybe Subject)
+subjectById pid =
      do Blog{..} <- ask
-        return $ getOne $ posts @= pid
-postsByStatus :: Status -> Query Blog [Post]
-postsByStatus status =
+        return $ getOne $ subjects @= pid
+subjectsByStatus :: Status -> Query Blog [Subject]
+subjectsByStatus status =
     do Blog{..} <- ask
-       return $ IxSet.toDescList (Proxy :: Proxy UTCTime) $ posts @= status
+       return $ IxSet.toDescList (Proxy :: Proxy UTCTime) $ subjects @= status
 $(makeAcidic ''Blog
-  [ 'newPost
-  , 'updatePost
-  , 'postById
-  , 'postsByStatus
+  [ 'newSubject
+  , 'updateSubject
+  , 'subjectById
+  , 'subjectsByStatus
   ])
 -- | HTML template that we use to render all the pages on the site
 template :: Text -> [Html] -> Html -> Response
@@ -126,7 +126,7 @@ template title headers body =
          H.li $ H.a ! A.href "/drafts" $ "drafts"
          H.li $ H.form ! A.enctype "multipart/form-data"
                        ! A.method "POST"
-                       ! A.action "/new" $ H.button $ "new post"
+                       ! A.action "/new" $ H.button $ "new subject"
         body
 
 -- | CSS for our site
@@ -142,9 +142,9 @@ css =
                         , ".author { color: #aaa; }"
                         , ".date { color: #aaa; }"
                         , ".tags { color: #aaa; }"
-                        , ".post { border-bottom: 1px dotted #aaa; margin-top: 1em; }"
+                        , ".subject { border-bottom: 1px dotted #aaa; margin-top: 1em; }"
                         , ".bdy  { color: #555; margin-top: 1em; }"
-                        , ".post-footer { margin-top: 1em; margin-bottom: 1em; }"
+                        , ".subject-footer { margin-top: 1em; margin-bottom: 1em; }"
                         , "label { display: inline-block; width: 3em; }"
                         , "#menu { margin: 0; padding: 0; margin-left: -1em;"
                         ,         "border-bottom: 1px solid #aaa; }"
@@ -155,14 +155,14 @@ css =
 
 edit :: AcidState Blog -> ServerPart Response
 edit acid =
-    do pid   <- PostId <$> lookRead "id"
+    do pid   <- SubjectId <$> lookRead "id"
        mMsg  <- optional $ lookText "msg"
-       mPost <- query' acid (PostById pid)
-       case mPost of
+       mSubject <- query' acid (SubjectById pid)
+       case mSubject of
          Nothing ->
-             notFound $ template "no such post" [] $ do "Could not find a post with id "
-                                                        H.toHtml (unPostId pid)
-         (Just p@(Post{..})) ->
+             notFound $ template "no such subject" [] $ do "Could not find a subject with id "
+                                                           H.toHtml (unSubjectId pid)
+         (Just p@(Subject{..})) ->
              msum [ do method GET
                        ok $ template "foo" [] $ do
                          case mMsg of
@@ -171,7 +171,7 @@ edit acid =
                          H.form ! A.enctype "multipart/form-data"
                               ! A.method "POST"
                               ! A.action (H.toValue $ "/edit?id=" ++
-                                                      (show $ unPostId pid)) $ do
+                                                      (show $ unSubjectId pid)) $ do
                            H.label "title" ! A.for "title"
                            H.input ! A.type_ "text"
                                    ! A.name "title"
@@ -211,7 +211,7 @@ edit acid =
                                       "save"    -> return Draft
                                       "publish" -> return Published
                                       _         -> mzero
-                       let updatedPost =
+                       let updatedSubject =
                                p { title  = ttl
                                  , author = athr
                                  , body   = bdy
@@ -219,70 +219,73 @@ edit acid =
                                  , status = stts
                                  , tags   = map Text.strip $ Text.splitOn "," tgs
                                  }
-                       update' acid (UpdatePost updatedPost)
+                       update' acid (UpdateSubject updatedSubject)
                        case status of
                          Published ->
-                           seeOther ("/view?id=" ++ (show $ unPostId pid))
+                           seeOther ("/view?id=" ++ (show $ unSubjectId pid))
                                     (toResponse ())
                          Draft     ->
-                           seeOther ("/edit?msg=saved&id=" ++ (show $ unPostId pid))
+                           seeOther ("/edit?msg=saved&id=" ++ (show $ unSubjectId pid))
                                     (toResponse ())
                   ]
 
                  where lookText' = fmap toStrict . lookText
--- | create a new blog post in the database , and then redirect to /edit
+-- | create a new blog subject in the database , and then redirect to /edit
 new :: AcidState Blog -> ServerPart Response
 new acid =
     do method POST
        now <- liftIO $ getCurrentTime
-       post <- update' acid (NewPost now)
-       seeOther ("/edit?id=" ++ show (unPostId $ postId post)) (toResponse ())
--- | render a single blog post into an HTML fragment
-postHtml  :: Post -> Html
-postHtml (Post{..}) =
-  H.div ! A.class_ "post" $ do
+       subject <- update' acid (NewSubject now)
+       seeOther ("/edit?id=" ++ show (unSubjectId $ subjectId subject)) (toResponse ())
+-- | render a single blog subject into an HTML fragment
+subjectHtml  :: Subject -> Html
+subjectHtml (Subject{..}) =
+  H.div ! A.class_ "subject" $ do
     H.h1 $ H.toHtml title
     H.div ! A.class_ "author" $ do "author: "    >> H.toHtml author
     H.div ! A.class_ "date"   $ do "published: " >> H.toHtml (show date)
     H.div ! A.class_ "tags"   $ do "tags: "       >> H.toHtml (Text.intercalate ", " tags)
     H.div ! A.class_ "bdy" $ H.toHtml body
-    H.div ! A.class_ "post-footer" $ do
+    H.div ! A.class_ "subject-footer" $ do
      H.span $ H.a ! A.href (H.toValue $ "/view?id=" ++
-                            show (unPostId postId)) $ "permalink"
+                            show (unSubjectId subjectId)) $ "permalink"
      H.span $ " "
      H.span $ H.a ! A.href (H.toValue $ "/edit?id=" ++
-                            show (unPostId postId)) $ "edit this post"
--- | view a single blog post
+                            show (unSubjectId subjectId)) $ "edit this subject"
+-- | view a single blog subject
 view :: AcidState Blog -> ServerPart Response
 view acid =
-    do pid <- PostId <$> lookRead "id"
-       mPost <- query' acid (PostById pid)
-       case mPost of
+    do pid <- SubjectId <$> lookRead "id"
+       mSubject <- query' acid (SubjectById pid)
+       case mSubject of
          Nothing ->
-             notFound $ template "no such post" [] $ do "Could not find a post with id "
-                                                        H.toHtml (unPostId pid)
+             notFound $ template "no such subject" [] $ do "Could not find a subject with id "
+                                                           H.toHtml (unSubjectId pid)
          (Just p) ->
              ok $ template (title p) [] $ do
-                 (postHtml p)
--- | render all the Published posts (ordered newest to oldest)
+                 (subjectHtml p)
+-- | render all the Published subjects (ordered newest to oldest)
 home :: AcidState Blog -> ServerPart Response
 home acid =
-    do published <- query' acid (PostsByStatus Published)
+    do published <- query' acid (SubjectsByStatus Published)
        ok $ template "home" [] $ do
-         mapM_ postHtml published
--- | show a list of all unpublished blog posts
+         mapM_ subjectHtml published
+-- | show a list of all unpublished blog subjects
 drafts :: AcidState Blog -> ServerPart Response
 drafts acid =
-    do drafts <- query' acid (PostsByStatus Draft)
+    do drafts <- query' acid (SubjectsByStatus Draft)
        case drafts of
-         [] -> ok $ template "drafts" [] $ "You have no unpublished posts at this time."
+         [] -> ok $ template "drafts" [] $ "You have no unpublished subjects at this time."
          _ ->
              ok $ template "home" [] $
                  H.ol $ mapM_ editDraftLink drafts
     where
-      editDraftLink Post{..} =
-        H.a ! A.href (H.toValue $ "/edit?id=" ++ show (unPostId postId)) $ H.toHtml title
+      editDraftLink Subject{..} =
+        H.a ! A.href (H.toValue $ "/edit?id=" ++ show (unSubjectId subjectId)) $ H.toHtml title
 -- | route incoming requests
+
+
+
 route :: AcidState Blog -> ServerPart Response
 route acid =
     do decodeBody (defaultBodyPolicy "/tmp/" 0 1000000 1000000)
