@@ -25,42 +25,25 @@ import Happstack.Server     ( ServerPart, Method(POST, HEAD, GET), Response, dec
                             , notFound, nullConf, nullDir, ok, seeOther, simpleHTTP
                             , toResponse)
 
-
+-------------------------------------------------------
+---------Subject
+-------------------------------------------------------
 newtype SubjectId = SubjectId { unSubjectId :: Integer }
     deriving (Eq, Ord, Data, Enum, Typeable, SafeCopy)
-data Status =
-    Draft
-  | Published
-    deriving (Eq, Ord, Data, Typeable)
-
-$(deriveSafeCopy 0 'base ''Status)
 data Subject = Subject
     { subjectId  :: SubjectId
-    , title   :: Text
-    , author  :: Text
-    , body    :: Text
-    , date    :: UTCTime
-    , status  :: Status
-    , tags    :: [Text]
+    , subjectName   :: Text
     }
     deriving (Eq, Ord, Data, Typeable)
-
 $(deriveSafeCopy 0 'base ''Subject)
-
-newtype Title     = Title Text    deriving (Eq, Ord, Data, Typeable, SafeCopy)
-newtype Author    = Author Text   deriving (Eq, Ord, Data, Typeable, SafeCopy)
-newtype Tag       = Tag Text      deriving (Eq, Ord, Data, Typeable, SafeCopy)
-newtype WordCount = WordCount Int deriving (Eq, Ord, Data, Typeable, SafeCopy)
+newtype SubjectName     = SubjectName Text    deriving (Eq, Ord, Data, Typeable, SafeCopy)
 instance Indexable Subject where
     empty = ixSet [ ixFun $ \bp -> [ subjectId bp ]
-                  , ixFun $ \bp -> [ Title  $ title bp  ]
-                  , ixFun $ \bp -> [ Author $ author bp ]
-                  , ixFun $ \bp -> [ status bp ]
-                  , ixFun $ \bp -> map Tag (tags bp)
-                  , ixFun $ (:[]) . date  -- point-free, just for variety
-                  , ixFun $ \bp -> [ WordCount (length $ Text.words $ body bp) ]
+                  , ixFun $ \bp -> [ SubjectName  $ subjectName bp  ]
                   ]
-
+-------------------------------------------------------
+---------Planner
+-------------------------------------------------------
 data Planner = Planner
     { nextSubjectId :: SubjectId
     , subjects      :: IxSet Subject
@@ -72,21 +55,17 @@ $(deriveSafeCopy 0 'base ''Planner)
 initialPlannerState :: Planner
 initialPlannerState =
     Planner { nextSubjectId = SubjectId 1
-         , subjects      = empty
-         }
+         , subjects      = empty   }
 
-
+-------------------------------------------------------
+---------Subject  functions
+-------------------------------------------------------
 -- | create a new, empty subject and add it to the database
 newSubject :: UTCTime -> Update Planner Subject
 newSubject pubDate =
     do b@Planner{..} <- get
        let subject = Subject { subjectId = nextSubjectId
-                       , title  = Text.empty
-                       , author = Text.empty
-                       , body   = Text.empty
-                       , date   = pubDate
-                       , status = Draft
-                       , tags   = []
+                       , subjectName  = Text.empty
                        }
        put $ b { nextSubjectId = succ nextSubjectId
                , subjects      = IxSet.insert subject subjects
@@ -102,13 +81,13 @@ subjectById :: SubjectId -> Query Planner (Maybe Subject)
 subjectById pid =
      do Planner{..} <- ask
         return $ getOne $ subjects @= pid
-subjectsByStatus :: Status -> Query Planner [Subject]
-subjectsByStatus status =
+subjectsAll ::  Query Planner [Subject]
+subjectsAll  =
     do Planner{..} <- ask
-       return $ IxSet.toDescList (Proxy :: Proxy UTCTime) $ subjects @= status
+       return $ IxSet.toList  $ subjects
 $(makeAcidic ''Planner
   [ 'newSubject
   , 'updateSubject
   , 'subjectById
-  , 'subjectsByStatus
+  , 'subjectsAll
   ])

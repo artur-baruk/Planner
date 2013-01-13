@@ -29,92 +29,11 @@ import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 import Template
 import Model
+import SubjectView
 
 
 
-edit :: AcidState Planner -> ServerPart Response
-edit acid =
-    do pid   <- SubjectId <$> lookRead "id"
-       mMsg  <- optional $ lookText "msg"
-       mSubject <- query' acid (SubjectById pid)
-       case mSubject of
-         Nothing ->
-             notFound $ template "no such subject" [] $ do "Could not find a subject with id "
-                                                           H.toHtml (unSubjectId pid)
-         (Just p@(Subject{..})) ->
-             msum [ do method GET
-                       ok $ template "foo" [] $ do
-                         case mMsg of
-                           (Just msg) | msg == "saved" -> "Changes saved!"
-                           _ -> ""
-                         H.form ! A.enctype "multipart/form-data"
-                              ! A.method "POST"
-                              ! A.action (H.toValue $ "/subjects/edit?id=" ++
-                                                      (show $ unSubjectId pid)) $ do
-                           H.label "Nazwa" ! A.for "Nazwa"
-                           H.input ! A.type_ "text"
-                                   ! A.name "name"
-                                   ! A.id "name"
-                                   ! A.size "80"
-                                   ! A.value (H.toValue title)
-                           H.br
-                           H.button ! A.name "status" ! A.value "Zapisz" $ "zapisz"
-                  , do method POST
-                       name   <- lookText' "name"
-                       let updatedSubject =
-                               p { title  = name
-                                 }
-                       update' acid (UpdateSubject updatedSubject)
-                       case status of
-                         Published ->
-                           seeOther ("/subjects/view?id=" ++ (show $ unSubjectId pid))
-                                    (toResponse ())
-                  ]
 
-                 where lookText' = fmap toStrict . lookText
--- | create a new planner subject in the database , and then redirect to /edit
-new :: AcidState Planner -> ServerPart Response
-new acid =
-    do method POST
-       now <- liftIO $ getCurrentTime
-       subject <- update' acid (NewSubject now)
-       seeOther ("/subjects/edit?id=" ++ show (unSubjectId $ subjectId subject)) (toResponse ())
--- | render a single planner subject into an HTML fragment
-subjectHtml  :: Subject -> Html
-subjectHtml (Subject{..}) =
-  H.div ! A.class_ "subject" $ do
-    H.h1 $ H.toHtml title
-    H.div ! A.class_ "author" $ do "author: "    >> H.toHtml author
-    H.div ! A.class_ "date"   $ do "published: " >> H.toHtml (show date)
-    H.div ! A.class_ "tags"   $ do "tags: "       >> H.toHtml (Text.intercalate ", " tags)
-    H.div ! A.class_ "bdy" $ H.toHtml body
-    H.div ! A.class_ "subject-footer" $ do
-     H.span $ H.a ! A.href (H.toValue $ "/subjects/view?id=" ++
-                            show (unSubjectId subjectId)) $ "permalink"
-     H.span $ " "
-     H.span $ H.a ! A.href (H.toValue $ "/subjects/edit?id=" ++
-                            show (unSubjectId subjectId)) $ "edit this subject"
--- | view a single planner subject
-view :: AcidState Planner -> ServerPart Response
-view acid =
-    do pid <- SubjectId <$> lookRead "id"
-       mSubject <- query' acid (SubjectById pid)
-       case mSubject of
-         Nothing ->
-             notFound $ template "no such subject" [] $ do "Could not find a subject with id "
-                                                           H.toHtml (unSubjectId pid)
-         (Just p) ->
-             ok $ template (title p) [] $ do
-                 (subjectHtml p)
-
--- | render all the Published subjects (ordered newest to oldest)
-showSubjects :: AcidState Planner -> ServerPart Response
-showSubjects acid =
-    do published <- query' acid (SubjectsByStatus Published)
-       ok $ template "Lista przedmiotów" [] $ do
-         mapM_ subjectHtml published
-
--- | render all the Published subjects (ordered newest to oldest)
 mainPage :: AcidState Planner -> ServerPart Response
 mainPage acid =
     do  ok $ template "Strona główna" [] $ do "Strona główna - wybierz coś na górze"
@@ -124,9 +43,9 @@ route :: AcidState Planner -> ServerPart Response
 route acid =
     do decodeBody (defaultBodyPolicy "/tmp/" 0 1000000 1000000)
        msum [ dirs "favicon.ico"    $ notFound (toResponse ())
-            , dirs "subjects/edit"  $ edit acid
-            , dirs "subjects/new"    $ new acid
-            , dirs "subjects/view"  $ view acid
+            , dirs "subjects/edit"  $ editSubjectView acid
+            , dirs "subjects/new"    $ newSubjectView acid
+            , dirs "subjects/view"  $ viewSubject acid
             , dirs "subjects"        $ showSubjects acid
             , nullDir               >> mainPage acid
             ]
