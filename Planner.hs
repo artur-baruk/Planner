@@ -61,23 +61,23 @@ instance Indexable Subject where
                   , ixFun $ \bp -> [ WordCount (length $ Text.words $ body bp) ]
                   ]
 
-data Blog = Blog
+data Planner = Planner
     { nextSubjectId :: SubjectId
     , subjects      :: IxSet Subject
     }
     deriving (Data, Typeable)
 
-$(deriveSafeCopy 0 'base ''Blog)
+$(deriveSafeCopy 0 'base ''Planner)
 
-initialBlogState :: Blog
-initialBlogState =
-    Blog { nextSubjectId = SubjectId 1
+initialPlannerState :: Planner
+initialPlannerState =
+    Planner { nextSubjectId = SubjectId 1
          , subjects      = empty
          }
 -- | create a new, empty subject and add it to the database
-newSubject :: UTCTime -> Update Blog Subject
+newSubject :: UTCTime -> Update Planner Subject
 newSubject pubDate =
-    do b@Blog{..} <- get
+    do b@Planner{..} <- get
        let subject = Subject { subjectId = nextSubjectId
                        , title  = Text.empty
                        , author = Text.empty
@@ -91,20 +91,20 @@ newSubject pubDate =
                }
        return subject
 -- | update the subject in the database (indexed by SubjectId)
-updateSubject :: Subject -> Update Blog ()
+updateSubject :: Subject -> Update Planner ()
 updateSubject updatedSubject =
-    do b@Blog{..} <- get
+    do b@Planner{..} <- get
        put $ b { subjects = IxSet.updateIx (subjectId updatedSubject) updatedSubject subjects
                }
-subjectById :: SubjectId -> Query Blog (Maybe Subject)
+subjectById :: SubjectId -> Query Planner (Maybe Subject)
 subjectById pid =
-     do Blog{..} <- ask
+     do Planner{..} <- ask
         return $ getOne $ subjects @= pid
-subjectsByStatus :: Status -> Query Blog [Subject]
+subjectsByStatus :: Status -> Query Planner [Subject]
 subjectsByStatus status =
-    do Blog{..} <- ask
+    do Planner{..} <- ask
        return $ IxSet.toDescList (Proxy :: Proxy UTCTime) $ subjects @= status
-$(makeAcidic ''Blog
+$(makeAcidic ''Planner
   [ 'newSubject
   , 'updateSubject
   , 'subjectById
@@ -153,7 +153,7 @@ css =
                         ]
     in H.style ! A.type_ "text/css" $ H.toHtml s
 
-edit :: AcidState Blog -> ServerPart Response
+edit :: AcidState Planner -> ServerPart Response
 edit acid =
     do pid   <- SubjectId <$> lookRead "id"
        mMsg  <- optional $ lookText "msg"
@@ -230,14 +230,14 @@ edit acid =
                   ]
 
                  where lookText' = fmap toStrict . lookText
--- | create a new blog subject in the database , and then redirect to /edit
-new :: AcidState Blog -> ServerPart Response
+-- | create a new planner subject in the database , and then redirect to /edit
+new :: AcidState Planner -> ServerPart Response
 new acid =
     do method POST
        now <- liftIO $ getCurrentTime
        subject <- update' acid (NewSubject now)
        seeOther ("/edit?id=" ++ show (unSubjectId $ subjectId subject)) (toResponse ())
--- | render a single blog subject into an HTML fragment
+-- | render a single planner subject into an HTML fragment
 subjectHtml  :: Subject -> Html
 subjectHtml (Subject{..}) =
   H.div ! A.class_ "subject" $ do
@@ -252,8 +252,8 @@ subjectHtml (Subject{..}) =
      H.span $ " "
      H.span $ H.a ! A.href (H.toValue $ "/edit?id=" ++
                             show (unSubjectId subjectId)) $ "edit this subject"
--- | view a single blog subject
-view :: AcidState Blog -> ServerPart Response
+-- | view a single planner subject
+view :: AcidState Planner -> ServerPart Response
 view acid =
     do pid <- SubjectId <$> lookRead "id"
        mSubject <- query' acid (SubjectById pid)
@@ -265,13 +265,13 @@ view acid =
              ok $ template (title p) [] $ do
                  (subjectHtml p)
 -- | render all the Published subjects (ordered newest to oldest)
-home :: AcidState Blog -> ServerPart Response
+home :: AcidState Planner -> ServerPart Response
 home acid =
     do published <- query' acid (SubjectsByStatus Published)
        ok $ template "home" [] $ do
          mapM_ subjectHtml published
--- | show a list of all unpublished blog subjects
-drafts :: AcidState Blog -> ServerPart Response
+-- | show a list of all unpublished planner subjects
+drafts :: AcidState Planner -> ServerPart Response
 drafts acid =
     do drafts <- query' acid (SubjectsByStatus Draft)
        case drafts of
@@ -286,7 +286,7 @@ drafts acid =
 
 
 
-route :: AcidState Blog -> ServerPart Response
+route :: AcidState Planner -> ServerPart Response
 route acid =
     do decodeBody (defaultBodyPolicy "/tmp/" 0 1000000 1000000)
        msum [ dir "favicon.ico" $ notFound (toResponse ())
@@ -299,7 +299,7 @@ route acid =
 -- | start acid-state and the http server
 main :: IO ()
 main =
-    do bracket (openLocalState initialBlogState)
+    do bracket (openLocalState initialPlannerState)
                (createCheckpointAndClose)
                (\acid ->
                     simpleHTTP nullConf (route acid))
