@@ -66,6 +66,8 @@ template title headers body =
          H.li $ H.a ! A.href "/subjects" $ "Przedmioty"
          H.li $ H.a ! A.href "/groups" $ "Grupy"
          H.li $ H.a ! A.href "/rooms" $ "Sale"
+         H.li $ H.a ! A.href "/plan" $ "Plan - wpisy"
+         H.li $ H.a ! A.href "/planTable" $ "Plan - tabelka"
 
          H.li $ H.form ! A.enctype "multipart/form-data"
                        ! A.method "POST"
@@ -76,4 +78,10 @@ template title headers body =
          H.li $ H.form ! A.enctype "multipart/form-data"
                        ! A.method "POST"
                        ! A.action "/rooms/new" $ H.button $ "Nowa sala"
+         H.li $ H.form ! A.enctype "multipart/form-data"
+                       ! A.method "POST"
+                       ! A.action "/plan/add" $ H.button $ "Dodaj wpis do planu"
+         H.li $ H.form ! A.enctype "multipart/form-data"
+                       ! A.method "POST"
+                       ! A.action "/plan/automatic" $ H.button $ "Automatyczne układanie planu"
         body

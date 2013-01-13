@@ -32,6 +32,7 @@ import Model
 import SubjectView
 import GroupView
 import RoomView
+import PlanView
 
 
 

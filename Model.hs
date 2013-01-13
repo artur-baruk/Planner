@@ -80,6 +80,48 @@ instance Indexable Room where
                   , ixFun $ \bp -> [ RoomName  $ roomName bp  ]
                   ]
 -------------------------------------------------------
+---------Slot czasowy w planie
+-------------------------------------------------------
+newtype SlotId = SlotId { unSlotId :: Integer }
+   deriving (Eq, Ord, Data, Enum, Typeable, SafeCopy)
+data Slot = Slot
+   { slotId  :: SlotId
+   , slotTime   :: UTCTime
+   }
+   deriving (Eq, Ord, Data, Typeable)
+$(deriveSafeCopy 0 'base ''Slot)
+newtype SlotTime     = SlotTime UTCTime    deriving (Eq, Ord, Data, Typeable, SafeCopy)
+instance Indexable Slot where
+   empty = ixSet [ ixFun $ \bp -> [ slotId bp ]
+                 , ixFun $ \bp -> [ SlotTime  $ slotTime bp  ]
+                 ]
+-------------------------------------------------------
+---------Entry
+-------------------------------------------------------
+newtype EntryId = EntryId { unEntryId :: Integer }
+   deriving (Eq, Ord, Data, Enum, Typeable, SafeCopy)
+data Entry = Entry
+   { entryId  :: EntryId
+   , subjectIdFk   :: Integer
+   , groupIdFk   :: Integer
+   , roomIdFk   :: Integer
+   , slotIdFk   :: Integer
+   }
+   deriving (Eq, Ord, Data, Typeable)
+$(deriveSafeCopy 0 'base ''Entry)
+newtype SubjectIdFk    = SubjectIdFk Int    deriving (Eq, Ord, Data, Typeable, SafeCopy)
+newtype GroupIdFk     = GroupIdFk Int    deriving (Eq, Ord, Data, Typeable, SafeCopy)
+newtype RoomIdFk    = RoomIdFk Int    deriving (Eq, Ord, Data, Typeable, SafeCopy)
+newtype SlotIdFk     = SlotIdFk Int    deriving (Eq, Ord, Data, Typeable, SafeCopy)
+
+instance Indexable Entry where
+   empty = ixSet [ ixFun $ \bp -> [ entryId bp ]
+                 , ixFun $ \bp -> [ SubjectId  $ subjectIdFk bp  ]
+                 , ixFun $ \bp -> [ GroupId  $ groupIdFk bp  ]
+                 , ixFun $ \bp -> [ RoomId  $ roomIdFk bp  ]
+                 , ixFun $ \bp -> [ SlotId  $ slotIdFk bp  ]
+                 ]
+-------------------------------------------------------
 ---------Planner
 -------------------------------------------------------
 data Planner = Planner
@@ -89,6 +131,8 @@ data Planner = Planner
     , groups      :: IxSet Group
     , nextRoomId :: RoomId
     , rooms      :: IxSet Room
+    , nextSlotId :: SlotId
+    , slots      :: IxSet Slot
     }
     deriving (Data, Typeable)
 
@@ -102,6 +146,8 @@ initialPlannerState =
          , groups      = empty
          , nextRoomId = RoomId 1
          , rooms      = empty
+         , nextSlotId = SlotId 1
+         , slots      = empty
          }
 
 -------------------------------------------------------
@@ -195,8 +241,34 @@ roomsAll  =
        return $ IxSet.toList  $ rooms
 
 
-
-
+-------------------------------------------------------
+---------Slot  functions
+-------------------------------------------------------
+-- | create a new, empty slot and add it to the database
+newSlot :: UTCTime -> Update Planner Slot
+newSlot pubDate =
+    do b@Planner{..} <- get
+       let slot = Slot { slotId = nextSlotId
+                       , slotTime  =  pubDate
+                       }
+       put $ b { nextSlotId = succ nextSlotId
+               , slots      = IxSet.insert slot slots
+               }
+       return slot
+-- | update the slot in the database (indexed by SlotId)
+updateSlot :: Slot -> Update Planner ()
+updateSlot updatedSlot =
+    do b@Planner{..} <- get
+       put $ b { slots = IxSet.updateIx (slotId updatedSlot) updatedSlot slots
+               }
+slotById :: SlotId -> Query Planner (Maybe Slot)
+slotById pid =
+     do Planner{..} <- ask
+        return $ getOne $ slots @= pid
+slotsAll ::  Query Planner [Slot]
+slotsAll  =
+    do Planner{..} <- ask
+       return $ IxSet.toList  $ slots
 
 
 
@@ -216,4 +288,8 @@ $(makeAcidic ''Planner
   , 'updateRoom
   , 'roomById
   , 'roomsAll
+  , 'newSlot
+  , 'updateSlot
+  , 'slotById
+  , 'slotsAll
   ])
