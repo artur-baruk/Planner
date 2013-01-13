@@ -31,6 +31,7 @@ import Template
 import Model
 import SubjectView
 import GroupView
+import RoomView
 
 
 
@@ -51,6 +52,10 @@ route acid =
             , dirs "groups/new"    $ newGroupView acid
             , dirs "groups/view"  $ viewGroup acid
             , dirs "groups"        $ showGroups acid
+            , dirs "rooms/edit"  $ editRoomView acid
+            , dirs "rooms/new"    $ newRoomView acid
+            , dirs "rooms/view"  $ viewRoom acid
+            , dirs "rooms"        $ showRooms acid
             , nullDir               >> mainPage acid
             ]
 

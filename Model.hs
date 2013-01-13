@@ -58,6 +58,22 @@ instance Indexable Group where
                   , ixFun $ \bp -> [ GroupName  $ groupName bp  ]
                   ]
 -------------------------------------------------------
+---------Room
+-------------------------------------------------------
+newtype RoomId = RoomId { unRoomId :: Integer }
+    deriving (Eq, Ord, Data, Enum, Typeable, SafeCopy)
+data Room = Room
+    { roomId  :: RoomId
+    , roomName   :: Text
+    }
+    deriving (Eq, Ord, Data, Typeable)
+$(deriveSafeCopy 0 'base ''Room)
+newtype RoomName     = RoomName Text    deriving (Eq, Ord, Data, Typeable, SafeCopy)
+instance Indexable Room where
+    empty = ixSet [ ixFun $ \bp -> [ roomId bp ]
+                  , ixFun $ \bp -> [ RoomName  $ roomName bp  ]
+                  ]
+-------------------------------------------------------
 ---------Planner
 -------------------------------------------------------
 data Planner = Planner
@@ -65,6 +81,8 @@ data Planner = Planner
     , subjects      :: IxSet Subject
     , nextGroupId :: GroupId
     , groups      :: IxSet Group
+    , nextRoomId :: RoomId
+    , rooms      :: IxSet Room
     }
     deriving (Data, Typeable)
 
@@ -75,7 +93,10 @@ initialPlannerState =
     Planner { nextSubjectId = SubjectId 1
          , subjects      = empty
          , nextGroupId = GroupId 1
-         , groups      = empty}
+         , groups      = empty
+         , nextRoomId = RoomId 1
+         , rooms      = empty
+         }
 
 -------------------------------------------------------
 ---------Subject  functions
@@ -136,6 +157,36 @@ groupsAll  =
        return $ IxSet.toList  $ groups
 
 
+-------------------------------------------------------
+---------Room  functions
+-------------------------------------------------------
+-- | create a new, empty room and add it to the database
+newRoom :: UTCTime -> Update Planner Room
+newRoom pubDate =
+    do b@Planner{..} <- get
+       let room = Room { roomId = nextRoomId
+                       , roomName  = Text.empty
+                       }
+       put $ b { nextRoomId = succ nextRoomId
+               , rooms      = IxSet.insert room rooms
+               }
+       return room
+-- | update the room in the database (indexed by RoomId)
+updateRoom :: Room -> Update Planner ()
+updateRoom updatedRoom =
+    do b@Planner{..} <- get
+       put $ b { rooms = IxSet.updateIx (roomId updatedRoom) updatedRoom rooms
+               }
+roomById :: RoomId -> Query Planner (Maybe Room)
+roomById pid =
+     do Planner{..} <- ask
+        return $ getOne $ rooms @= pid
+roomsAll ::  Query Planner [Room]
+roomsAll  =
+    do Planner{..} <- ask
+       return $ IxSet.toList  $ rooms
+
+
 
 
 
@@ -153,4 +204,8 @@ $(makeAcidic ''Planner
   , 'updateGroup
   , 'groupById
   , 'groupsAll
+  , 'newRoom
+  , 'updateRoom
+  , 'roomById
+  , 'roomsAll
   ])

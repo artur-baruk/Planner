@@ -65,10 +65,15 @@ template title headers body =
         H.ul ! A.id "menu" $ do
          H.li $ H.a ! A.href "/subjects" $ "Przedmioty"
          H.li $ H.a ! A.href "/groups" $ "Grupy"
+         H.li $ H.a ! A.href "/rooms" $ "Sale"
+
          H.li $ H.form ! A.enctype "multipart/form-data"
                        ! A.method "POST"
                        ! A.action "/subjects/new" $ H.button $ "Nowy przedmiot"
          H.li $ H.form ! A.enctype "multipart/form-data"
                        ! A.method "POST"
                        ! A.action "/groups/new" $ H.button $ "Nowa grupa"
+         H.li $ H.form ! A.enctype "multipart/form-data"
+                       ! A.method "POST"
+                       ! A.action "/rooms/new" $ H.button $ "Nowa sala"
         body
