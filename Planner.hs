@@ -30,7 +30,7 @@ import qualified Text.Blaze.Html5.Attributes as A
 import Template
 import Model
 import SubjectView
-
+import GroupView
 
 
 
@@ -47,6 +47,10 @@ route acid =
             , dirs "subjects/new"    $ newSubjectView acid
             , dirs "subjects/view"  $ viewSubject acid
             , dirs "subjects"        $ showSubjects acid
+            , dirs "groups/edit"  $ editGroupView acid
+            , dirs "groups/new"    $ newGroupView acid
+            , dirs "groups/view"  $ viewGroup acid
+            , dirs "groups"        $ showGroups acid
             , nullDir               >> mainPage acid
             ]
 

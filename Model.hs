@@ -42,11 +42,29 @@ instance Indexable Subject where
                   , ixFun $ \bp -> [ SubjectName  $ subjectName bp  ]
                   ]
 -------------------------------------------------------
+---------Group
+-------------------------------------------------------
+newtype GroupId = GroupId { unGroupId :: Integer }
+    deriving (Eq, Ord, Data, Enum, Typeable, SafeCopy)
+data Group = Group
+    { groupId  :: GroupId
+    , groupName   :: Text
+    }
+    deriving (Eq, Ord, Data, Typeable)
+$(deriveSafeCopy 0 'base ''Group)
+newtype GroupName     = GroupName Text    deriving (Eq, Ord, Data, Typeable, SafeCopy)
+instance Indexable Group where
+    empty = ixSet [ ixFun $ \bp -> [ groupId bp ]
+                  , ixFun $ \bp -> [ GroupName  $ groupName bp  ]
+                  ]
+-------------------------------------------------------
 ---------Planner
 -------------------------------------------------------
 data Planner = Planner
     { nextSubjectId :: SubjectId
     , subjects      :: IxSet Subject
+    , nextGroupId :: GroupId
+    , groups      :: IxSet Group
     }
     deriving (Data, Typeable)
 
@@ -55,7 +73,9 @@ $(deriveSafeCopy 0 'base ''Planner)
 initialPlannerState :: Planner
 initialPlannerState =
     Planner { nextSubjectId = SubjectId 1
-         , subjects      = empty   }
+         , subjects      = empty
+         , nextGroupId = GroupId 1
+         , groups      = empty}
 
 -------------------------------------------------------
 ---------Subject  functions
@@ -85,9 +105,52 @@ subjectsAll ::  Query Planner [Subject]
 subjectsAll  =
     do Planner{..} <- ask
        return $ IxSet.toList  $ subjects
+
+-------------------------------------------------------
+---------Group  functions
+-------------------------------------------------------
+-- | create a new, empty group and add it to the database
+newGroup :: UTCTime -> Update Planner Group
+newGroup pubDate =
+    do b@Planner{..} <- get
+       let group = Group { groupId = nextGroupId
+                       , groupName  = Text.empty
+                       }
+       put $ b { nextGroupId = succ nextGroupId
+               , groups      = IxSet.insert group groups
+               }
+       return group
+-- | update the group in the database (indexed by GroupId)
+updateGroup :: Group -> Update Planner ()
+updateGroup updatedGroup =
+    do b@Planner{..} <- get
+       put $ b { groups = IxSet.updateIx (groupId updatedGroup) updatedGroup groups
+               }
+groupById :: GroupId -> Query Planner (Maybe Group)
+groupById pid =
+     do Planner{..} <- ask
+        return $ getOne $ groups @= pid
+groupsAll ::  Query Planner [Group]
+groupsAll  =
+    do Planner{..} <- ask
+       return $ IxSet.toList  $ groups
+
+
+
+
+
+
+
+-------------------------------------------------------
+---------global  acidic
+-------------------------------------------------------
 $(makeAcidic ''Planner
   [ 'newSubject
   , 'updateSubject
   , 'subjectById
   , 'subjectsAll
+  , 'newGroup
+  , 'updateGroup
+  , 'groupById
+  , 'groupsAll
   ])
