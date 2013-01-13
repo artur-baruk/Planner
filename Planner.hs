@@ -20,138 +20,17 @@ import Data.Text.Lazy       (toStrict)
 import qualified Data.Text  as Text
 import Data.Time            (UTCTime(..), getCurrentTime)
 import Happstack.Server     ( ServerPart, Method(POST, HEAD, GET), Response, decodeBody
-                            , defaultBodyPolicy, dir, lookRead, lookText, method
+                            , defaultBodyPolicy, dir, dirs, lookRead, lookText, method
                             , notFound, nullConf, nullDir, ok, seeOther, simpleHTTP
                             , toResponse)
 import Text.Blaze.Html5 (Html, (!), a, form, input, p, toHtml, label)
 import Text.Blaze.Html5.Attributes (action, enctype, href, name, size, type_, value)
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
-newtype SubjectId = SubjectId { unSubjectId :: Integer }
-    deriving (Eq, Ord, Data, Enum, Typeable, SafeCopy)
-data Status =
-    Draft
-  | Published
-    deriving (Eq, Ord, Data, Typeable)
+import Template
+import Model
 
-$(deriveSafeCopy 0 'base ''Status)
-data Subject = Subject
-    { subjectId  :: SubjectId
-    , title   :: Text
-    , author  :: Text
-    , body    :: Text
-    , date    :: UTCTime
-    , status  :: Status
-    , tags    :: [Text]
-    }
-    deriving (Eq, Ord, Data, Typeable)
 
-$(deriveSafeCopy 0 'base ''Subject)
-newtype Title     = Title Text    deriving (Eq, Ord, Data, Typeable, SafeCopy)
-newtype Author    = Author Text   deriving (Eq, Ord, Data, Typeable, SafeCopy)
-newtype Tag       = Tag Text      deriving (Eq, Ord, Data, Typeable, SafeCopy)
-newtype WordCount = WordCount Int deriving (Eq, Ord, Data, Typeable, SafeCopy)
-instance Indexable Subject where
-    empty = ixSet [ ixFun $ \bp -> [ subjectId bp ]
-                  , ixFun $ \bp -> [ Title  $ title bp  ]
-                  , ixFun $ \bp -> [ Author $ author bp ]
-                  , ixFun $ \bp -> [ status bp ]
-                  , ixFun $ \bp -> map Tag (tags bp)
-                  , ixFun $ (:[]) . date  -- point-free, just for variety
-                  , ixFun $ \bp -> [ WordCount (length $ Text.words $ body bp) ]
-                  ]
-
-data Planner = Planner
-    { nextSubjectId :: SubjectId
-    , subjects      :: IxSet Subject
-    }
-    deriving (Data, Typeable)
-
-$(deriveSafeCopy 0 'base ''Planner)
-
-initialPlannerState :: Planner
-initialPlannerState =
-    Planner { nextSubjectId = SubjectId 1
-         , subjects      = empty
-         }
--- | create a new, empty subject and add it to the database
-newSubject :: UTCTime -> Update Planner Subject
-newSubject pubDate =
-    do b@Planner{..} <- get
-       let subject = Subject { subjectId = nextSubjectId
-                       , title  = Text.empty
-                       , author = Text.empty
-                       , body   = Text.empty
-                       , date   = pubDate
-                       , status = Draft
-                       , tags   = []
-                       }
-       put $ b { nextSubjectId = succ nextSubjectId
-               , subjects      = IxSet.insert subject subjects
-               }
-       return subject
--- | update the subject in the database (indexed by SubjectId)
-updateSubject :: Subject -> Update Planner ()
-updateSubject updatedSubject =
-    do b@Planner{..} <- get
-       put $ b { subjects = IxSet.updateIx (subjectId updatedSubject) updatedSubject subjects
-               }
-subjectById :: SubjectId -> Query Planner (Maybe Subject)
-subjectById pid =
-     do Planner{..} <- ask
-        return $ getOne $ subjects @= pid
-subjectsByStatus :: Status -> Query Planner [Subject]
-subjectsByStatus status =
-    do Planner{..} <- ask
-       return $ IxSet.toDescList (Proxy :: Proxy UTCTime) $ subjects @= status
-$(makeAcidic ''Planner
-  [ 'newSubject
-  , 'updateSubject
-  , 'subjectById
-  , 'subjectsByStatus
-  ])
--- | HTML template that we use to render all the pages on the site
-template :: Text -> [Html] -> Html -> Response
-template title headers body =
-  toResponse $
-    H.html $ do
-      H.head $ do
-        css
-        H.title (H.toHtml title)
-        H.meta ! A.httpEquiv "Content-Type" ! A.content "text/html;charset=utf-8"
-        sequence_ headers
-      H.body $ do
-        H.ul ! A.id "menu" $ do
-         H.li $ H.a ! A.href "/" $ "home"
-         H.li $ H.a ! A.href "/drafts" $ "drafts"
-         H.li $ H.form ! A.enctype "multipart/form-data"
-                       ! A.method "POST"
-                       ! A.action "/new" $ H.button $ "new subject"
-        body
-
--- | CSS for our site
---
--- Normally this would live in an external .css file.
--- It is included inline here to keep the example self-contained.
-css :: Html
-css =
-    let s = Text.concat [ "body { color: #555; padding: 0; margin: 0; margin-left: 1em;}"
-                        , "ul { list-style-type: none; }"
-                        , "ol { list-style-type: none; }"
-                        , "h1 { font-size: 1.5em; color: #555; margin: 0; }"
-                        , ".author { color: #aaa; }"
-                        , ".date { color: #aaa; }"
-                        , ".tags { color: #aaa; }"
-                        , ".subject { border-bottom: 1px dotted #aaa; margin-top: 1em; }"
-                        , ".bdy  { color: #555; margin-top: 1em; }"
-                        , ".subject-footer { margin-top: 1em; margin-bottom: 1em; }"
-                        , "label { display: inline-block; width: 3em; }"
-                        , "#menu { margin: 0; padding: 0; margin-left: -1em;"
-                        ,         "border-bottom: 1px solid #aaa; }"
-                        , "#menu li { display: inline; margin-left: 1em; }"
-                        , "#menu form { display: inline; margin-left: 1em; }"
-                        ]
-    in H.style ! A.type_ "text/css" $ H.toHtml s
 
 edit :: AcidState Planner -> ServerPart Response
 edit acid =
@@ -170,62 +49,25 @@ edit acid =
                            _ -> ""
                          H.form ! A.enctype "multipart/form-data"
                               ! A.method "POST"
-                              ! A.action (H.toValue $ "/edit?id=" ++
+                              ! A.action (H.toValue $ "/subjects/edit?id=" ++
                                                       (show $ unSubjectId pid)) $ do
-                           H.label "title" ! A.for "title"
+                           H.label "Nazwa" ! A.for "Nazwa"
                            H.input ! A.type_ "text"
-                                   ! A.name "title"
-                                   ! A.id "title"
+                                   ! A.name "name"
+                                   ! A.id "name"
                                    ! A.size "80"
                                    ! A.value (H.toValue title)
                            H.br
-                           H.label "author" ! A.for "author"
-                           H.input ! A.type_ "text"
-                                   ! A.name "author"
-                                   ! A.id "author"
-                                   ! A.size "40"
-                                   ! A.value (H.toValue author)
-                           H.br
-                           H.label "tags" ! A.for "tags"
-                           H.input ! A.type_ "text"
-                                   ! A.name "tags"
-                                   ! A.id "tags"
-                                   ! A.size "40"
-                                   ! A.value (H.toValue $ Text.intercalate ", " tags)
-                           H.br
-                           H.label "body" ! A.for "body"
-                           H.br
-                           H.textarea ! A.cols "80" ! A.rows "20" ! A.name "body" $ H.toHtml body
-                           H.br
-                           H.button ! A.name "status" ! A.value "publish" $ "publish"
-                           H.button ! A.name "status" ! A.value "save"    $ "save as draft"
+                           H.button ! A.name "status" ! A.value "Zapisz" $ "zapisz"
                   , do method POST
-                       ttl   <- lookText' "title"
-                       athr  <- lookText' "author"
-                       tgs   <- lookText' "tags"
-
-                       bdy   <- lookText' "body"
-                       now   <- liftIO $ getCurrentTime
-                       stts  <- do s <- lookText' "status"
-                                   case s of
-                                      "save"    -> return Draft
-                                      "publish" -> return Published
-                                      _         -> mzero
+                       name   <- lookText' "name"
                        let updatedSubject =
-                               p { title  = ttl
-                                 , author = athr
-                                 , body   = bdy
-                                 , date   = now
-                                 , status = stts
-                                 , tags   = map Text.strip $ Text.splitOn "," tgs
+                               p { title  = name
                                  }
                        update' acid (UpdateSubject updatedSubject)
                        case status of
                          Published ->
-                           seeOther ("/view?id=" ++ (show $ unSubjectId pid))
-                                    (toResponse ())
-                         Draft     ->
-                           seeOther ("/edit?msg=saved&id=" ++ (show $ unSubjectId pid))
+                           seeOther ("/subjects/view?id=" ++ (show $ unSubjectId pid))
                                     (toResponse ())
                   ]
 
@@ -236,7 +78,7 @@ new acid =
     do method POST
        now <- liftIO $ getCurrentTime
        subject <- update' acid (NewSubject now)
-       seeOther ("/edit?id=" ++ show (unSubjectId $ subjectId subject)) (toResponse ())
+       seeOther ("/subjects/edit?id=" ++ show (unSubjectId $ subjectId subject)) (toResponse ())
 -- | render a single planner subject into an HTML fragment
 subjectHtml  :: Subject -> Html
 subjectHtml (Subject{..}) =
@@ -247,10 +89,10 @@ subjectHtml (Subject{..}) =
     H.div ! A.class_ "tags"   $ do "tags: "       >> H.toHtml (Text.intercalate ", " tags)
     H.div ! A.class_ "bdy" $ H.toHtml body
     H.div ! A.class_ "subject-footer" $ do
-     H.span $ H.a ! A.href (H.toValue $ "/view?id=" ++
+     H.span $ H.a ! A.href (H.toValue $ "/subjects/view?id=" ++
                             show (unSubjectId subjectId)) $ "permalink"
      H.span $ " "
-     H.span $ H.a ! A.href (H.toValue $ "/edit?id=" ++
+     H.span $ H.a ! A.href (H.toValue $ "/subjects/edit?id=" ++
                             show (unSubjectId subjectId)) $ "edit this subject"
 -- | view a single planner subject
 view :: AcidState Planner -> ServerPart Response
@@ -264,38 +106,32 @@ view acid =
          (Just p) ->
              ok $ template (title p) [] $ do
                  (subjectHtml p)
--- | render all the Published subjects (ordered newest to oldest)
-home :: AcidState Planner -> ServerPart Response
-home acid =
-    do published <- query' acid (SubjectsByStatus Published)
-       ok $ template "home" [] $ do
-         mapM_ subjectHtml published
--- | show a list of all unpublished planner subjects
-drafts :: AcidState Planner -> ServerPart Response
-drafts acid =
-    do drafts <- query' acid (SubjectsByStatus Draft)
-       case drafts of
-         [] -> ok $ template "drafts" [] $ "You have no unpublished subjects at this time."
-         _ ->
-             ok $ template "home" [] $
-                 H.ol $ mapM_ editDraftLink drafts
-    where
-      editDraftLink Subject{..} =
-        H.a ! A.href (H.toValue $ "/edit?id=" ++ show (unSubjectId subjectId)) $ H.toHtml title
--- | route incoming requests
 
+-- | render all the Published subjects (ordered newest to oldest)
+showSubjects :: AcidState Planner -> ServerPart Response
+showSubjects acid =
+    do published <- query' acid (SubjectsByStatus Published)
+       ok $ template "Lista przedmiotów" [] $ do
+         mapM_ subjectHtml published
+
+-- | render all the Published subjects (ordered newest to oldest)
+mainPage :: AcidState Planner -> ServerPart Response
+mainPage acid =
+    do  ok $ template "Strona główna" [] $ do "Strona główna - wybierz coś na górze"
 
 
 route :: AcidState Planner -> ServerPart Response
 route acid =
     do decodeBody (defaultBodyPolicy "/tmp/" 0 1000000 1000000)
-       msum [ dir "favicon.ico" $ notFound (toResponse ())
-            , dir "edit"        $ edit acid
-            , dir "new"         $ new acid
-            , dir "view"        $ view acid
-            , dir "drafts"      $ drafts acid
-            , nullDir          >> home acid
+       msum [ dirs "favicon.ico"    $ notFound (toResponse ())
+            , dirs "subjects/edit"  $ edit acid
+            , dirs "subjects/new"    $ new acid
+            , dirs "subjects/view"  $ view acid
+            , dirs "subjects"        $ showSubjects acid
+            , nullDir               >> mainPage acid
             ]
+
+
 -- | start acid-state and the http server
 main :: IO ()
 main =
