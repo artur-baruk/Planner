@@ -56,11 +56,28 @@ editSubjectView acid =
                                    ! A.size "80"
                                    ! A.value (H.toValue subjectName)
                            H.br
+                           H.label "Opis" ! A.for "opis"
+                           H.input ! A.type_ "text"
+                                   ! A.name "desc"
+                                   ! A.id "desc"
+                                   ! A.size "80"
+                                   ! A.value (H.toValue subjectDesc)
+                           H.br
+                           H.label "Godzin" ! A.for "hPw"
+                           H.input ! A.type_ "number"
+                                   ! A.name "hoursPerWeek"
+                                   ! A.id "hoursPerWeek"
+                                   ! A.value (H.toValue hoursPerWeek)
+                           H.br
                            H.button ! A.name "status" ! A.value "Zapisz" $ "zapisz"
                   , do method POST
                        name   <- lookText' "name"
+                       desc   <- lookText' "desc"
+                       hoursPerWeek <-   lookRead "hoursPerWeek"
                        let updatedSubject =
                                p { subjectName  = name
+                                 ,  subjectDesc = desc
+                                 ,  hoursPerWeek =  hoursPerWeek
                                  }
                        update' acid (UpdateSubject updatedSubject)
                        seeOther ("/subjects/view?id=" ++ (show $ unSubjectId pid))
@@ -80,6 +97,8 @@ subjectHtml  :: Subject -> Html
 subjectHtml (Subject{..}) =
   H.div ! A.class_ "subject" $ do
     H.h1 $ H.toHtml subjectName
+    H.div ! A.class_ "opis" $ do "Opis: "    >> H.toHtml subjectDesc
+    H.div ! A.class_ "godzin" $ do "Godzin w tygodniu: "    >> H.toHtml hoursPerWeek
     H.div ! A.class_ "post-footer" $ do
      H.span $ H.a ! A.href (H.toValue $ "/subjects/view?id=" ++
                             show (unSubjectId subjectId)) $ "Otwórz"

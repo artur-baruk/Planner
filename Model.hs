@@ -30,16 +30,22 @@ import Happstack.Server     ( ServerPart, Method(POST, HEAD, GET), Response, dec
 -------------------------------------------------------
 newtype SubjectId = SubjectId { unSubjectId :: Integer }
     deriving (Eq, Ord, Data, Enum, Typeable, SafeCopy)
+newtype SubjectName     = SubjectName Text    deriving (Eq, Ord, Data, Typeable, SafeCopy)
+newtype SubjectDesc     = SubjectDesc Text    deriving (Eq, Ord, Data, Typeable, SafeCopy)
+newtype HoursPerWeek     = HoursPerWeek Int    deriving (Eq, Ord, Data, Typeable, SafeCopy)
 data Subject = Subject
     { subjectId  :: SubjectId
     , subjectName   :: Text
+    , subjectDesc ::   Text
+    , hoursPerWeek :: Int
     }
     deriving (Eq, Ord, Data, Typeable)
 $(deriveSafeCopy 0 'base ''Subject)
-newtype SubjectName     = SubjectName Text    deriving (Eq, Ord, Data, Typeable, SafeCopy)
 instance Indexable Subject where
     empty = ixSet [ ixFun $ \bp -> [ subjectId bp ]
                   , ixFun $ \bp -> [ SubjectName  $ subjectName bp  ]
+                  , ixFun $ \bp -> [ SubjectDesc  $ subjectDesc bp  ]
+                  , ixFun $ \bp -> [ HoursPerWeek  $ hoursPerWeek bp  ]
                   ]
 -------------------------------------------------------
 ---------Group
@@ -107,6 +113,8 @@ newSubject pubDate =
     do b@Planner{..} <- get
        let subject = Subject { subjectId = nextSubjectId
                        , subjectName  = Text.empty
+                       , subjectDesc  = Text.empty
+                       , hoursPerWeek = 0
                        }
        put $ b { nextSubjectId = succ nextSubjectId
                , subjects      = IxSet.insert subject subjects
