@@ -122,6 +122,21 @@ instance Indexable Entry where
                  , ixFun $ \bp -> [ SlotId  $ slotIdFk bp  ]
                  ]
 -------------------------------------------------------
+---------Settings
+-------------------------------------------------------
+data Settings = Settings { maxDailyHoursPerGroup :: Int
+							, startTime :: Int
+							, endTime :: Int
+							}
+							deriving (Eq, Ord, Data, Typeable)
+$(deriveSafeCopy 0 'base ''Settings)
+
+updateSettings :: Settings -> Update Planner ()
+updateSettings updatedSettings =
+    do b@Planner{..} <- get
+       put $ b { settings = updatedSettings
+               }
+-------------------------------------------------------
 ---------Planner
 -------------------------------------------------------
 data Planner = Planner
@@ -135,11 +150,14 @@ data Planner = Planner
     , slots      :: IxSet Slot
     , nextEntryId :: EntryId
     , entrys      :: IxSet Entry
+	, settings	:: Settings
     }
     deriving (Data, Typeable)
 
 $(deriveSafeCopy 0 'base ''Planner)
 
+peekSettings :: Query Planner Settings
+peekSettings = settings <$> ask
 
 
 -------------------------------------------------------
@@ -307,6 +325,7 @@ initialPlannerState =
       , slots      = empty
       , nextEntryId = EntryId 1
       , entrys      = empty
+	  , settings 	= Settings 6 8 16		-- default settings
       }
 
 -------------------------------------------------------
@@ -333,4 +352,7 @@ $(makeAcidic ''Planner
   , 'updateEntry
   , 'entryById
   , 'entrysAll
+  , 'peekSettings
+  , 'updateSettings
   ])
+ 

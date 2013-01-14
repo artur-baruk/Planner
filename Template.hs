@@ -69,6 +69,7 @@ template title headers body =
          H.li $ H.a ! A.href "/slots" $ "Sloty godzinowe"
          H.li $ H.a ! A.href "/plan" $ "Plan - wpisy"
          H.li $ H.a ! A.href "/planTable" $ "Plan - tabelka"
+         H.li $ H.a ! A.href "/settings" $ "Ustawienia"
 
          H.li $ H.form ! A.enctype "multipart/form-data"
                        ! A.method "POST"
