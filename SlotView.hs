@@ -50,11 +50,13 @@ editSlotView acid =
                               ! A.action (H.toValue $ "/slots/edit?id=" ++
                                                       (show $ unSlotId pid)) $ do
                            H.label "Godzina rozpoczęcia" ! A.for "startTime"
-                           H.input ! A.type_ "text"
-                                   ! A.name "startTime"
-                                   ! A.id "startTime"
-                                   ! A.size "80"
-                                   ! A.value (H.toValue slotTime)
+                           H.select ! A.name "startTime" $ do
+                              H.option  "Poniedziałek - 8.00"
+                                     ! A.value "Poniedziałek - 8.00"
+                              H.option  "Poniedziałek - 9.00"
+                                     ! A.value "Poniedziałek - 8.00"
+                              H.option  "Wtorek - 12.00"
+                                     ! A.value "Wtorek - 12.00"
                            H.br
                            H.button ! A.name "status" ! A.value "Zapisz" $ "zapisz"
                   , do method POST

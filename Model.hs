@@ -140,19 +140,7 @@ data Planner = Planner
 
 $(deriveSafeCopy 0 'base ''Planner)
 
-initialPlannerState :: Planner
-initialPlannerState =
-    Planner { nextSubjectId = SubjectId 1
-         , subjects      = empty
-         , nextGroupId = GroupId 1
-         , groups      = empty
-         , nextRoomId = RoomId 1
-         , rooms      = empty
-         , nextSlotId = SlotId 1
-         , slots      = empty
-         , nextEntryId = EntryId 1
-         , entrys      = empty
-         }
+
 
 -------------------------------------------------------
 ---------Subject  functions
@@ -307,6 +295,19 @@ entrysAll  =
        return $ IxSet.toList  $ entrys
 
 
+initialPlannerState :: Planner
+initialPlannerState =
+ Planner { nextSubjectId = SubjectId 1
+      , subjects      = empty
+      , nextGroupId = GroupId 1
+      , groups      = empty
+      , nextRoomId = RoomId 1
+      , rooms      = empty
+      , nextSlotId = SlotId 1
+      , slots      = empty
+      , nextEntryId = EntryId 1
+      , entrys      = empty
+      }
 
 -------------------------------------------------------
 ---------global  acidic
