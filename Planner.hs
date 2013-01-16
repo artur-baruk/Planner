@@ -35,6 +35,7 @@ import RoomView
 import SlotView
 import PlanView
 import SettingsView
+import EntryView
 
 
 mainPage :: AcidState Planner -> ServerPart Response
@@ -62,6 +63,10 @@ route acid =
             , dirs "slots/new"    $ newSlotView acid
             , dirs "slots/view"  $ viewSlot acid
             , dirs "slots"        $ showSlots acid
+			, dirs "entries/edit"  $ editEntryView acid
+            , dirs "entries/new"    $ newEntryView acid
+            , dirs "entries/view"  $ viewEntry acid
+			, dirs "entries"        $ showEntries acid
 			, dirs "settings"	$ viewSettings acid
             , nullDir               >> mainPage acid
             ]

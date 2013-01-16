@@ -30,7 +30,7 @@ import Happstack.Server     ( ServerPart, Method(POST, HEAD, GET), Response, dec
 -------------------------------------------------------
 newtype SubjectId = SubjectId { unSubjectId :: Integer }
     deriving (Eq, Ord, Data, Enum, Typeable, SafeCopy)
-newtype SubjectName     = SubjectName Text    deriving (Eq, Ord, Data, Typeable, SafeCopy)
+newtype SubjectName     = SubjectName Text    deriving (Eq, Ord, Data, Typeable, SafeCopy, Show)
 newtype SubjectDesc     = SubjectDesc Text    deriving (Eq, Ord, Data, Typeable, SafeCopy)
 newtype HoursPerWeek     = HoursPerWeek Int    deriving (Eq, Ord, Data, Typeable, SafeCopy)
 data Subject = Subject
@@ -307,8 +307,8 @@ entryById :: EntryId -> Query Planner (Maybe Entry)
 entryById pid =
      do Planner{..} <- ask
         return $ getOne $ entrys @= pid
-entrysAll ::  Query Planner [Entry]
-entrysAll  =
+entriesAll ::  Query Planner [Entry]
+entriesAll  =
     do Planner{..} <- ask
        return $ IxSet.toList  $ entrys
 
@@ -351,7 +351,7 @@ $(makeAcidic ''Planner
   , 'newEntry
   , 'updateEntry
   , 'entryById
-  , 'entrysAll
+  , 'entriesAll
   , 'peekSettings
   , 'updateSettings
   ])
