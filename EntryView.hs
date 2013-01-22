@@ -67,9 +67,15 @@ editEntryView acid =
                            H.br
                            H.button ! A.name "status" ! A.value "Zapisz" $ "zapisz"
                   , do method POST
-                       nr   <- lookRead "nr"
+                       subjectId   <- lookRead "subject"
+                       roomId   <- lookRead "room"
+                       groupId   <- lookRead "group"
+                       slotId   <- lookRead "slot"
                        let updatedEntry =
-                               p { subjectIdFk = nr
+                               p { subjectIdFk = subjectId
+                                  , roomIdFk = roomId
+                                  , groupIdFk = groupId
+                                  , slotIdFk = slotId
                                  }
                        update' acid (UpdateEntry updatedEntry)
                        seeOther ("/entries/view?id=" ++ (show $ unEntryId pid))
@@ -87,16 +93,20 @@ newEntryView acid =
 -- | render a single planner room into an HTML fragment
 entryHtml :: AcidState Planner -> Entry -> Html
 entryHtml acid (Entry{..}) =
-		H.div ! A.class_ "entry" $ do
-			H.div ! A.class_ "subjectIdFk" $ do "subject: "    >> H.toHtml subjectIdFk
-			H.div ! A.class_ "groupIdFk" $ do "group: "    >> H.toHtml groupIdFk
-			H.div ! A.class_ "roomIdFk" $ do "room: "    >> H.toHtml roomIdFk
+			H.div ! A.class_ "entry" $ do
+			H.div ! A.class_ "subjectIdFk" $ do "Przedmiot: "    >> H.toHtml (getSubjectNameById acid 1 )
+			H.div ! A.class_ "groupIdFk" $ do "Grupa: "    >> H.toHtml groupIdFk
+			H.div ! A.class_ "roomIdFk" $ do "Sala: "    >> H.toHtml roomIdFk
+			H.div ! A.class_ "roomIdFk" $ do "Godzina"    >> H.toHtml roomIdFk
 			H.div ! A.class_ "post-footer" $ do
 				 H.span $ H.a ! A.href (H.toValue $ "/entries/view?id=" ++
 										show (unEntryId entryId)) $ "Otworz"
 				 H.span $ " "
 				 H.span $ H.a ! A.href (H.toValue $ "/entries/edit?id=" ++
 										show (unEntryId entryId)) $ "Edytuj wpis"
+				 H.span $ " "
+				 H.span $ H.a ! A.href (H.toValue $ "/entries/edit?id=" ++
+										show (unEntryId entryId)) $ "Usuń wpis"										
 -- | view a single planner room
 viewEntry :: AcidState Planner -> ServerPart Response
 viewEntry acid =
@@ -121,7 +131,6 @@ subjectOption  :: Subject -> Html
 subjectOption (Subject{..}) =
   H.option ! H.customAttribute "value" (H.toValue (show (unSubjectId subjectId))) $ H.toHtml subjectName
 
-
 roomOption  :: Room -> Html
 roomOption (Room{..}) =
   H.option ! H.customAttribute "value" (H.toValue (show (unRoomId roomId))) $ H.toHtml roomName
@@ -135,5 +144,11 @@ slotOption (Slot{..}) =
   H.option ! H.customAttribute "value" (H.toValue (show (unSlotId slotId))) $ H.toHtml slotTime
 
 
-
-
+getSubjectNameById :: AcidState Planner -> Integer -> String
+getSubjectNameById acid x  =
+      do "DUPA"
+--    do let pid  = SubjectId {unSubjectId = 3}
+--       mSubject <- query' acid (SubjectById pid)
+--       case mSubject of
+--                Nothing -> "Nie znaleziono wpisu"
+--                (Just p@(Subject{..})) -> "Dupa?"
