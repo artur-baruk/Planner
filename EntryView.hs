@@ -35,6 +35,10 @@ editEntryView acid =
     do pid   <- EntryId <$> lookRead "id"
        mMsg  <- optional $ lookText "msg"
        mEntry <- query' acid (EntryById pid)
+       allSubjects <- query' acid (SubjectsAll)
+       allRooms <- query' acid (RoomsAll)
+       allGroups <- query' acid (GroupsAll)
+       allSlots <- query' acid (SlotsAll)
        case mEntry of
          Nothing ->
              notFound $ template "no such room" [] $ do "Nie Mozna odnalezc sali o ID: "
@@ -49,12 +53,17 @@ editEntryView acid =
                               ! A.method "POST"
                               ! A.action (H.toValue $ "/entries/edit?id=" ++
                                                       (show $ unEntryId pid)) $ do
-                           H.label "Nr przedmiotu" ! A.for "Nazwa"
-                           H.input ! A.type_ "number"
-                                   ! A.name "nr"
-                                   ! A.id "nr"
-                                   ! A.size "80"
-                                   ! A.value (H.toValue subjectIdFk)
+                           H.label "Przedmiot" ! A.for "Nazwa"
+                           H.select ! A.name "subject" $ mapM_ (subjectOption ) allSubjects
+                           H.br
+                           H.label "Sala" ! A.for "Nazwa"
+                           H.select ! A.name "room" $ mapM_ (roomOption ) allRooms
+                           H.br
+                           H.label "Grupa" ! A.for "Nazwa"
+                           H.select ! A.name "group" $ mapM_ (groupOption ) allGroups
+                           H.br
+                           H.label "Godzina" ! A.for "Nazwa"
+                           H.select ! A.name "slot" $ mapM_ (slotOption ) allSlots
                            H.br
                            H.button ! A.name "status" ! A.value "Zapisz" $ "zapisz"
                   , do method POST
@@ -106,3 +115,25 @@ showEntries acid =
     do allEntries <- query' acid (EntriesAll)
        ok $ template "Lista wpisow" [] $ do
          mapM_ (entryHtml acid) allEntries
+
+
+subjectOption  :: Subject -> Html
+subjectOption (Subject{..}) =
+  H.option ! H.customAttribute "value" (H.toValue (show (unSubjectId subjectId))) $ H.toHtml subjectName
+
+
+roomOption  :: Room -> Html
+roomOption (Room{..}) =
+  H.option ! H.customAttribute "value" (H.toValue (show (unRoomId roomId))) $ H.toHtml roomName
+
+groupOption  :: Group -> Html
+groupOption (Group{..}) =
+  H.option ! H.customAttribute "value" (H.toValue (show (unGroupId groupId))) $ H.toHtml groupName
+
+slotOption  :: Slot -> Html
+slotOption (Slot{..}) =
+  H.option ! H.customAttribute "value" (H.toValue (show (unSlotId slotId))) $ H.toHtml slotTime
+
+
+
+

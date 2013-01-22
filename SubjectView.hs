@@ -30,6 +30,7 @@ import qualified Text.Blaze.Html5.Attributes as A
 import Template
 import Model
 
+
 editSubjectView :: AcidState Planner -> ServerPart Response
 editSubjectView acid =
     do pid   <- SubjectId <$> lookRead "id"

@@ -43,7 +43,7 @@ css =
                         , ".subject { border-bottom: 1px dotted #aaa; margin-top: 1em; }"
                         , ".bdy  { color: #555; margin-top: 1em; }"
                         , ".subject-footer { margin-top: 1em; margin-bottom: 1em; }"
-                        , "label { display: inline-block; width: 3em; }"
+                        , "label { display: inline-block; width: 5em; }"
                         , "#menu { margin: 0; padding: 0; margin-left: -1em;"
                         ,         "border-bottom: 1px solid #aaa; }"
                         , "#menu li { display: inline; margin-left: 1em; }"

@@ -29,7 +29,7 @@ import Happstack.Server     ( ServerPart, Method(POST, HEAD, GET), Response, dec
 ---------Subject
 -------------------------------------------------------
 newtype SubjectId = SubjectId { unSubjectId :: Integer }
-    deriving (Eq, Ord, Data, Enum, Typeable, SafeCopy)
+    deriving (Eq, Ord, Data, Enum, Typeable, SafeCopy, Read,Show)
 newtype SubjectName     = SubjectName Text    deriving (Eq, Ord, Data, Typeable, SafeCopy, Show)
 newtype SubjectDesc     = SubjectDesc Text    deriving (Eq, Ord, Data, Typeable, SafeCopy)
 newtype HoursPerWeek     = HoursPerWeek Int    deriving (Eq, Ord, Data, Typeable, SafeCopy)
@@ -160,7 +160,7 @@ peekSettings :: Query Planner Settings
 peekSettings = settings <$> ask
 
 
--------------------------------------------------------
+----------------------------------------------- --------
 ---------Subject  functions
 -------------------------------------------------------
 -- | create a new, empty subject and add it to the database
