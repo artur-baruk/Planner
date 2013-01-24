@@ -50,6 +50,32 @@ css =
                         , "#menu form { display: inline; margin-left: 1em; }"
                         ]
     in H.style ! A.type_ "text/css" $ H.toHtml s
+	
+js :: Html
+js =
+    let s = Text.concat [ "$(document).ready(function() {"
+                        , "$('.subjectGet').each(function() {"
+                        , "var currentId = $(this).attr('id');"
+                        , "$.ajax({  url: '/subjects/info?id='+currentId, dataType : 'text',  async: false ,  success: function( data ) { resp = data}});"
+                        , "$(this).html(resp);});"
+                        , "$('.slotGet').each(function() {"
+                        , "var currentId = $(this).attr('id');"
+                        , "$.ajax({  url: '/slots/info?id='+currentId, dataType : 'text',  async: false ,  success: function( data ) { resp = data}});"
+                        , "$(this).html(resp);});"
+                        , "$('.roomGet').each(function() {"
+                        , "var currentId = $(this).attr('id');"
+                        , "$.ajax({  url: '/rooms/info?id='+currentId, dataType : 'text',  async: false ,  success: function( data ) { resp = data}});"
+                        , "$(this).html(resp);});"
+                        , "$('.groupGet').each(function() {"
+                        , "var currentId = $(this).attr('id');"
+                        , "$.ajax({  url: '/groups/info?id='+currentId, dataType : 'text',  async: false ,  success: function( data ) { resp = data}});"
+                        , "$(this).html(resp);});"
+                        , "});"						
+                        ]
+    in H.script ! A.type_ "text/javascript" $ H.toHtml s	
+	
+	
+	
 
 -- | HTML template that we use to render all the pages on the site
 template :: Text -> [Html] -> Html -> Response
@@ -58,6 +84,8 @@ template title headers body =
     H.html $ do
       H.head $ do
         css
+        H.script ! A.type_ "text/javascript" ! A.src "//ajax.googleapis.com/ajax/libs/jquery/1.9.0/jquery.min.js" $ do ""
+        js
         H.title (H.toHtml title)
         H.meta ! A.httpEquiv "Content-Type" ! A.content "text/html;charset=utf-8"
         sequence_ headers

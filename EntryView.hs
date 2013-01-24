@@ -99,11 +99,20 @@ entryHtml acid (Entry{..}) =
 		H.div ! A.class_ "entry" $ do
 			H.br
 			H.b "Przedmiot: "
-			H.i ! A.class_ "subject" 
+			H.i ! A.class_ "subjectGet" 
 				  ! A.id (H.toValue subjectIdFk) $ do  "pusty przedmiot"
-			H.div ! A.class_ "groupIdFk" $ do "Grupa: "    >> H.toHtml groupIdFk
-			H.div ! A.class_ "roomIdFk" $ do "Sala: "    >> H.toHtml roomIdFk
-			H.div ! A.class_ "roomIdFk" $ do "Godzina: "    >> H.toHtml roomIdFk
+			H.br
+			H.b "Grupa: "
+			H.i ! A.class_ "groupGet"
+				  ! A.id (H.toValue groupIdFk) $ do  "pusta grupa"
+			H.br
+			H.b "Sala: "
+			H.i ! A.class_ "roomGet"
+				  ! A.id (H.toValue roomIdFk) $ do  "pusty sala"
+			H.br
+			H.b "Godzina: "
+			H.i ! A.class_ "slotGet" 
+				  ! A.id (H.toValue slotIdFk) $ do  "pusty slot"
 			H.div ! A.class_ "post-footer" $ do
 				 H.span $ H.a ! A.href (H.toValue $ "/entries/view?id=" ++
 										show (unEntryId entryId)) $ "Otworz"
@@ -154,10 +163,8 @@ slotOption (Slot{..}) =
   H.option ! H.customAttribute "value" (H.toValue (show (unSlotId slotId))) $ H.toHtml slotTime
 
 
-getSubjectNameById :: AcidState Planner -> String
-getSubjectNameById acid  =
-    do  "DUPA"
-	
-
----show (subjectName(query' acid (SubjectById (SubjectId 5))))
---(query' acid (SubjectById (SubjectId 5)))
+planTable :: AcidState Planner -> ServerPart Response
+planTable acid = 
+    do allEntries <- query' acid (EntriesAll)
+       ok $ template "Tabelka z planem" [] $ do
+         mapM_ (entryHtml acid) allEntries

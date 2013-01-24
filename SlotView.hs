@@ -106,3 +106,19 @@ showSlots acid =
     do allSlots <- query' acid (SlotsAll)
        ok $ template "Lista sal" [] $ do
          mapM_ slotHtml allSlots
+
+slotInfo :: AcidState Planner -> ServerPart Response
+slotInfo acid =
+    do pid <- SlotId <$> lookRead "id"
+       mSlot <- query' acid (SlotById pid)
+       case mSlot of
+         Nothing ->
+             ok $ toResponse $ H.div "Nie znaleziona slotu"
+         (Just p) ->
+             ok $ toResponse $ (slotHtml2 p)
+
+
+slotHtml2  :: Slot -> Html
+slotHtml2 (Slot{..}) =
+    (H.toHtml slotTime)
+

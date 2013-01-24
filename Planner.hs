@@ -50,23 +50,28 @@ route acid =
             , dirs "subjects/edit"  $ editSubjectView acid
             , dirs "subjects/new"    $ newSubjectView acid
             , dirs "subjects/view"  $ viewSubject acid
+            , dirs "subjects/info"   $ subjectInfo acid
             , dirs "subjects"        $ showSubjects acid
             , dirs "groups/edit"  $ editGroupView acid
             , dirs "groups/new"    $ newGroupView acid
             , dirs "groups/view"  $ viewGroup acid
+            , dirs "groups/info"   $ groupInfo acid	
             , dirs "groups"        $ showGroups acid
             , dirs "rooms/edit"  $ editRoomView acid
             , dirs "rooms/new"    $ newRoomView acid
             , dirs "rooms/view"  $ viewRoom acid
+            , dirs "rooms/info"   $ roomInfo acid			
             , dirs "rooms"        $ showRooms acid
             , dirs "slots/edit"  $ editSlotView acid
             , dirs "slots/new"    $ newSlotView acid
             , dirs "slots/view"  $ viewSlot acid
+            , dirs "slots/info"   $ slotInfo acid
             , dirs "slots"        $ showSlots acid
 			, dirs "entries/edit"  $ editEntryView acid
             , dirs "entries/new"    $ newEntryView acid
             , dirs "entries/view"  $ viewEntry acid
 			, dirs "entries"        $ showEntries acid
+			, dirs "planTable"      $ planTable acid
 			, dirs "settings"	$ viewSettings acid
             , nullDir               >> mainPage acid
             ]

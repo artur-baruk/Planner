@@ -124,3 +124,21 @@ showSubjects acid =
     do allSubjects <- query' acid (SubjectsAll)
        ok $ template "Lista przedmiotów" [] $ do
          mapM_ subjectHtml allSubjects
+
+
+
+subjectInfo :: AcidState Planner -> ServerPart Response
+subjectInfo acid =
+    do pid <- SubjectId <$> lookRead "id"
+       mSubject <- query' acid (SubjectById pid)
+       case mSubject of
+         Nothing ->
+             ok $ toResponse $ H.div "Nie znaleziona przedmiotu"
+         (Just p) ->
+             ok $ toResponse $ (subjectHtml2 p)
+
+
+subjectHtml2  :: Subject -> Html
+subjectHtml2 (Subject{..}) =
+    (H.toHtml subjectName)
+
