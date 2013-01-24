@@ -104,3 +104,21 @@ showRooms acid =
     do allRooms <- query' acid (RoomsAll)
        ok $ template "Lista sal" [] $ do
          mapM_ roomHtml allRooms
+
+
+roomInfo :: AcidState Planner -> ServerPart Response
+roomInfo acid =
+    do pid <- RoomId <$> lookRead "id"
+       mRoom <- query' acid (RoomById pid)
+       case mRoom of
+         Nothing ->
+             ok $ toResponse $ H.div "Nie znaleziona przedmiotu"
+         (Just p) ->
+             ok $ toResponse $ (roomHtml2 p)
+
+
+roomHtml2  :: Room -> Html
+roomHtml2 (Room{..}) =
+    (H.toHtml roomName)		 
+		 
+		 

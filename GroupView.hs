@@ -104,3 +104,20 @@ showGroups acid =
     do allGroups <- query' acid (GroupsAll)
        ok $ template "Lista grup" [] $ do
          mapM_ groupHtml allGroups
+		 
+groupInfo :: AcidState Planner -> ServerPart Response
+groupInfo acid =
+    do pid <- GroupId <$> lookRead "id"
+       mGroup <- query' acid (GroupById pid)
+       case mGroup of
+         Nothing ->
+             ok $ toResponse $ H.div "Nie znaleziona przedmiotu"
+         (Just p) ->
+             ok $ toResponse $ (groupHtml2 p)
+
+
+groupHtml2  :: Group -> Html
+groupHtml2 (Group{..}) =
+    (H.toHtml groupName)
+		 
+		 
