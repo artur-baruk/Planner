@@ -20,15 +20,18 @@ import Data.Text.Lazy       (toStrict)
 import qualified Data.Text  as Text
 import Data.Time            (UTCTime(..), getCurrentTime)
 import Happstack.Server     ( ServerPart, Method(POST, HEAD, GET), Response, decodeBody
-                            , defaultBodyPolicy, dir, dirs, lookRead, lookText, method
+                            , defaultBodyPolicy, dir, dirs, look, lookRead, lookText, method
                             , notFound, nullConf, nullDir, ok, seeOther, simpleHTTP
                             , toResponse)
+import Happstack.Server.RqData (RqData, look, getDataFn)
 import Text.Blaze.Html5 (Html, (!), a, form, input, p, toHtml, label)
 import Text.Blaze.Html5.Attributes (action, enctype, href, name, size, type_, value)
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 import Template
 import Model
+import SubjectView
+
 
 editEntryView :: AcidState Planner -> ServerPart Response
 editEntryView acid =
@@ -93,11 +96,14 @@ newEntryView acid =
 -- | render a single planner room into an HTML fragment
 entryHtml :: AcidState Planner -> Entry -> Html
 entryHtml acid (Entry{..}) =
-			H.div ! A.class_ "entry" $ do
-			H.div ! A.class_ "subjectIdFk" $ do "Przedmiot: "    >> H.toHtml (getSubjectNameById acid 1 )
+		H.div ! A.class_ "entry" $ do
+			H.br
+			H.b "Przedmiot: "
+			H.i ! A.class_ "subject" 
+				  ! A.id (H.toValue subjectIdFk) $ do  "pusty przedmiot"
 			H.div ! A.class_ "groupIdFk" $ do "Grupa: "    >> H.toHtml groupIdFk
 			H.div ! A.class_ "roomIdFk" $ do "Sala: "    >> H.toHtml roomIdFk
-			H.div ! A.class_ "roomIdFk" $ do "Godzina"    >> H.toHtml roomIdFk
+			H.div ! A.class_ "roomIdFk" $ do "Godzina: "    >> H.toHtml roomIdFk
 			H.div ! A.class_ "post-footer" $ do
 				 H.span $ H.a ! A.href (H.toValue $ "/entries/view?id=" ++
 										show (unEntryId entryId)) $ "Otworz"
@@ -106,7 +112,11 @@ entryHtml acid (Entry{..}) =
 										show (unEntryId entryId)) $ "Edytuj wpis"
 				 H.span $ " "
 				 H.span $ H.a ! A.href (H.toValue $ "/entries/edit?id=" ++
-										show (unEntryId entryId)) $ "Usuń wpis"										
+										show (unEntryId entryId)) $ "Usuń wpis"
+
+
+
+
 -- | view a single planner room
 viewEntry :: AcidState Planner -> ServerPart Response
 viewEntry acid =
@@ -117,8 +127,8 @@ viewEntry acid =
              notFound $ template "no such room" [] $ do "Could not find an entry with id "
                                                         H.toHtml (unEntryId pid)
          (Just p) ->
-             ok $ template ("Entry") [] $ do
-                 (entryHtml acid p)
+             do      ok $ template ("Entry") [] $ do
+                     (entryHtml acid p)
 
 showEntries :: AcidState Planner -> ServerPart Response
 showEntries acid =
@@ -144,11 +154,10 @@ slotOption (Slot{..}) =
   H.option ! H.customAttribute "value" (H.toValue (show (unSlotId slotId))) $ H.toHtml slotTime
 
 
-getSubjectNameById :: AcidState Planner -> Integer -> String
-getSubjectNameById acid x  =
-      do "DUPA"
---    do let pid  = SubjectId {unSubjectId = 3}
---       mSubject <- query' acid (SubjectById pid)
---       case mSubject of
---                Nothing -> "Nie znaleziono wpisu"
---                (Just p@(Subject{..})) -> "Dupa?"
+getSubjectNameById :: AcidState Planner -> String
+getSubjectNameById acid  =
+    do  "DUPA"
+	
+
+---show (subjectName(query' acid (SubjectById (SubjectId 5))))
+--(query' acid (SubjectById (SubjectId 5)))
