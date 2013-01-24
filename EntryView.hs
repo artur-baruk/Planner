@@ -94,8 +94,8 @@ newEntryView acid =
        entry <- update' acid (NewEntry now)
        seeOther ("/entries/edit?id=" ++ show (unEntryId $ entryId entry)) (toResponse ())
 -- | render a single planner room into an HTML fragment
-entryHtml :: AcidState Planner -> Entry -> Html
-entryHtml acid (Entry{..}) =
+entryHtml :: Entry -> Html
+entryHtml (Entry{..}) =
 		H.div ! A.class_ "entry" $ do
 			H.br
 			H.b "Przedmiot: "
@@ -137,13 +137,13 @@ viewEntry acid =
                                                         H.toHtml (unEntryId pid)
          (Just p) ->
              do      ok $ template ("Entry") [] $ do
-                     (entryHtml acid p)
+                     (entryHtml  p)
 
 showEntries :: AcidState Planner -> ServerPart Response
 showEntries acid =
     do allEntries <- query' acid (EntriesAll)
        ok $ template "Lista wpisow" [] $ do
-         mapM_ (entryHtml acid) allEntries
+         mapM_ entryHtml  allEntries
 
 
 subjectOption  :: Subject -> Html
@@ -166,5 +166,30 @@ slotOption (Slot{..}) =
 planTable :: AcidState Planner -> ServerPart Response
 planTable acid = 
     do allEntries <- query' acid (EntriesAll)
+       allGroups <- query' acid (GroupsAll)
        ok $ template "Tabelka z planem" [] $ do
-         mapM_ (entryHtml acid) allEntries
+            mapM_ (showGroup allEntries) allGroups
+
+showGroup :: [Entry] -> Group  -> Html
+showGroup allEntries (Group{..})  =
+			H.div ! A.class_ "entry" $ do
+			H.br
+			H.b  "Grupa: " 
+			H.b $ H.toHtml groupName 
+			mapM_ (entryHtml2 (unGroupId groupId)) allEntries
+
+entryHtml2 ::Integer -> Entry ->Html
+entryHtml2 x (Entry{..})  =
+	if  x == groupIdFk
+		then	H.div ! A.class_ "entry" $ do
+				H.i "  |  "
+				H.i ! A.class_ "slotGet"
+					  ! A.id (H.toValue slotIdFk) $ do  "pusty slot"
+				H.i "  |  "
+				H.i ! A.class_ "roomGet"
+					  ! A.id (H.toValue roomIdFk) $ do  "pusty sala"
+				H.i "  |  "
+				H.i ! A.class_ "subjectGet"
+					  ! A.id (H.toValue subjectIdFk) $ do  "pusty przedmiot"
+				H.i "  |  "
+		else	"" 
