@@ -113,8 +113,8 @@ editEntryView acid =
 
 --checkCond :: [Entry] -> String
 checkCond allEntries subjectId roomId groupId slotId=
-           if 1==0
-                then "toManyHour"
+           if checkHoursSubject allEntries  subjectId
+                then "toManyHourSubject"
                 else if checkRoomBusy allEntries roomId  slotId
                         then "roomBusy"
                         else if checkGroupBusy allEntries groupId  slotId
@@ -122,10 +122,14 @@ checkCond allEntries subjectId roomId groupId slotId=
                                    else "ok"
 mapCond string
      | string == "ok"         = "Zapis%20zakonczony%20powodzeniem"
-     | string == "toManyHour" = "Zapis%20zakonczony%20niepowodzeniem%20-%20za%20duzo%20godzin%20zajec%20w%20tygodniu"
+     | string == "toManyHourSubject" = "Zapis%20zakonczony%20niepowodzeniem%20-%20za%20duzo%20godzin%20zajec%20w%20tygodniu"
      | string == "roomBusy" =   "Zapis%20zakonczony%20niepowodzeniem%20-%20sala%20zajeta%20o%20wskazanej%20godzinie"
      | string == "groupBusy" =  "Zapis%20zakonczony%20niepowodzeniem%20-%20grupa%20zajeta%20o%20wskazanej%20godzinie"
      | otherwise              = "Zapis%20nieudany?"
+
+
+checkHoursSubject :: [Entry] -> Integer-> Bool
+checkHoursSubject allEntries subjectId= False
 
 checkGroupBusy :: [Entry] -> Integer -> Integer -> Bool
 checkGroupBusy allEntries groupId slotId =
