@@ -25,6 +25,14 @@ import Happstack.Server     ( ServerPart, Method(POST, HEAD, GET), Response, dec
                             , notFound, nullConf, nullDir, ok, seeOther, simpleHTTP
                             , toResponse)
 
+data Status =
+     Active
+   | NotActive
+     deriving (Eq, Ord, Data, Typeable)
+
+$(deriveSafeCopy 0 'base ''Status)
+
+
 -------------------------------------------------------
 ---------Subject
 -------------------------------------------------------
@@ -106,6 +114,7 @@ data Entry = Entry
    , groupIdFk   :: Integer
    , roomIdFk   :: Integer
    , slotIdFk   :: Integer
+   , entryStatus ::Status
    }
    deriving (Eq, Ord, Data, Typeable)
 $(deriveSafeCopy 0 'base ''Entry)
@@ -114,12 +123,14 @@ newtype GroupIdFk     = GroupIdFk Int    deriving (Eq, Ord, Data, Typeable, Safe
 newtype RoomIdFk    = RoomIdFk Int    deriving (Eq, Ord, Data, Typeable, SafeCopy)
 newtype SlotIdFk     = SlotIdFk Int    deriving (Eq, Ord, Data, Typeable, SafeCopy)
 
+
 instance Indexable Entry where
    empty = ixSet [ ixFun $ \bp -> [ entryId bp ]
                  , ixFun $ \bp -> [ SubjectId  $ subjectIdFk bp  ]
                  , ixFun $ \bp -> [ GroupId  $ groupIdFk bp  ]
                  , ixFun $ \bp -> [ RoomId  $ roomIdFk bp  ]
                  , ixFun $ \bp -> [ SlotId  $ slotIdFk bp  ]
+                 , ixFun $ \bp -> [ entryStatus bp ]
                  ]
 -------------------------------------------------------
 ---------Settings
@@ -292,6 +303,7 @@ newEntry pubDate =
                        , groupIdFk   = 0
                        , roomIdFk   = 0
                        , slotIdFk   = 0
+                       , entryStatus   = NotActive
                        }
        put $ b { nextEntryId = succ nextEntryId
                , entrys      = IxSet.insert entry entrys
@@ -311,6 +323,11 @@ entriesAll ::  Query Planner [Entry]
 entriesAll  =
     do Planner{..} <- ask
        return $ IxSet.toList  $ entrys
+
+entriesByStatus :: Status ->  Query Planner [Entry]
+entriesByStatus  status=
+    do Planner{..} <- ask
+       return $ IxSet.toList  $ entrys  @= status
 
 
 initialPlannerState :: Planner
@@ -352,6 +369,7 @@ $(makeAcidic ''Planner
   , 'updateEntry
   , 'entryById
   , 'entriesAll
+  , 'entriesByStatus
   , 'peekSettings
   , 'updateSettings
   ])

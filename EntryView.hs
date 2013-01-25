@@ -68,24 +68,48 @@ editEntryView acid =
                            H.label "Godzina" ! A.for "Nazwa"
                            H.select ! A.name "slot" $ mapM_ (slotOption ) allSlots
                            H.br
-                           H.button ! A.name "status" ! A.value "Zapisz" $ "zapisz"
+                           H.button ! A.name "status" ! A.value "zapisz" $ "zapisz"
+                           H.button ! A.name "status" ! A.value "usun" $ "usun"
                   , do method POST
                        subjectId   <- lookRead "subject"
                        roomId   <- lookRead "room"
                        groupId   <- lookRead "group"
                        slotId   <- lookRead "slot"
+                       stts  <- do s <- lookText "status"
+                                   case s of
+                                      "usun"    -> return NotActive
+                                      "zapisz"    -> return Active
+                                      _-> return Active
+
                        let updatedEntry =
                                p { subjectIdFk = subjectId
                                   , roomIdFk = roomId
                                   , groupIdFk = groupId
                                   , slotIdFk = slotId
+                                  , entryStatus = stts
                                  }
+                       let msg = checkCond
+                       let msg2 = mapCond msg
+
                        update' acid (UpdateEntry updatedEntry)
-                       seeOther ("/entries/view?id=" ++ (show $ unEntryId pid))
-                                    (toResponse ())
+                       case stts of
+                         NotActive ->
+                           seeOther ("/entries?pokazWszystkie=" ++ (show $ unEntryId pid) )
+                                                               (toResponse ())
+                         Active     ->
+                           seeOther ("/entries/view?id=" ++ (show $ unEntryId pid)++"&msg="++msg2 )
+                                                               (toResponse ())
                   ]
 
-                 --where lookText' = fmap toStrict . lookText
+checkCond :: String
+checkCond  = "ok"
+
+mapCond string
+     | string == "ok" = "Zapis%20zakonczony%20powodzeniem"
+     | string == "del" = "Obiekt%20usuniety%20pomyslnie"
+
+
+--where lookText' = fmap toStrict . lookText
 -- | create a new planner room in the database , and then redirect to /edit
 newEntryView :: AcidState Planner -> ServerPart Response
 newEntryView acid =
@@ -119,10 +143,6 @@ entryHtml (Entry{..}) =
 				 H.span $ " "
 				 H.span $ H.a ! A.href (H.toValue $ "/entries/edit?id=" ++
 										show (unEntryId entryId)) $ "Edytuj wpis"
-				 H.span $ " "
-				 H.span $ H.a ! A.href (H.toValue $ "/entries/edit?id=" ++
-										show (unEntryId entryId)) $ "Usuń wpis"
-
 
 
 
@@ -131,17 +151,22 @@ viewEntry :: AcidState Planner -> ServerPart Response
 viewEntry acid =
     do pid <- EntryId <$> lookRead "id"
        mEntry <- query' acid (EntryById pid)
+       mMsg  <- optional $ lookText "msg" 
        case mEntry of
          Nothing ->
              notFound $ template "no such room" [] $ do "Could not find an entry with id "
                                                         H.toHtml (unEntryId pid)
          (Just p) ->
              do      ok $ template ("Entry") [] $ do
+                     case mMsg of
+                           (Just msg) | msg == "saved" -> "Tak"
+                                      | msg /= "saved" -> H.toHtml msg
+                           Nothing -> ""
                      (entryHtml  p)
 
 showEntries :: AcidState Planner -> ServerPart Response
 showEntries acid =
-    do allEntries <- query' acid (EntriesAll)
+    do allEntries <- query' acid (EntriesByStatus Active)
        ok $ template "Lista wpisow" [] $ do
          mapM_ entryHtml  allEntries
 
@@ -165,31 +190,29 @@ slotOption (Slot{..}) =
 
 planTable :: AcidState Planner -> ServerPart Response
 planTable acid = 
-    do allEntries <- query' acid (EntriesAll)
+    do allEntries <- query' acid (EntriesByStatus Active)
        allGroups <- query' acid (GroupsAll)
        ok $ template "Tabelka z planem" [] $ do
             mapM_ (showGroup allEntries) allGroups
 
 showGroup :: [Entry] -> Group  -> Html
 showGroup allEntries (Group{..})  =
-			H.div ! A.class_ "entry" $ do
-			H.br
-			H.b  "Grupa: " 
-			H.b $ H.toHtml groupName 
-			mapM_ (entryHtml2 (unGroupId groupId)) allEntries
+		H.div ! A.class_ "entry" $ do
+			H.b  "Grupa: "
+			H.b $ H.toHtml groupName
+			H.table ! A.class_ "entryTab" $ do
+				mapM_ (entryHtml2 (unGroupId groupId)) allEntries
 
 entryHtml2 ::Integer -> Entry ->Html
 entryHtml2 x (Entry{..})  =
 	if  x == groupIdFk
-		then	H.div ! A.class_ "entry" $ do
-				H.i "  |  "
-				H.i ! A.class_ "slotGet"
-					  ! A.id (H.toValue slotIdFk) $ do  "pusty slot"
-				H.i "  |  "
-				H.i ! A.class_ "roomGet"
-					  ! A.id (H.toValue roomIdFk) $ do  "pusty sala"
-				H.i "  |  "
-				H.i ! A.class_ "subjectGet"
-					  ! A.id (H.toValue subjectIdFk) $ do  "pusty przedmiot"
-				H.i "  |  "
-		else	"" 
+		then	H.tr ! A.class_ "entry" $ do
+					H.td ! A.class_ "slotGet"
+						  ! A.id (H.toValue slotIdFk) $ do  "pusty slot"
+					H.td ! A.class_ "roomGet"
+						  ! A.id (H.toValue roomIdFk) $ do  "pusty sala"
+					H.td ! A.class_ "subjectGet"
+						  ! A.id (H.toValue subjectIdFk) $ do  "pusty przedmiot"
+		else	""
+		
+		
