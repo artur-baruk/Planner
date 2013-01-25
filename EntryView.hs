@@ -38,7 +38,7 @@ editEntryView acid =
     do pid   <- EntryId <$> lookRead "id"
        mMsg  <- optional $ lookText "msg"
        mEntry <- query' acid (EntryById pid)
-       allEntries <- query' acid (EntriesAll)
+       allEntries <- query' acid (EntriesByStatus Active)
        allSubjects <- query' acid (SubjectsAll)
        allRooms <- query' acid (RoomsAll)
        allGroups <- query' acid (GroupsAll)
@@ -52,11 +52,13 @@ editEntryView acid =
                        ok $ template "foo" [] $ do
                          case mMsg of
                            (Just msg) | msg == "saved" -> "Zmiany zapisane!"
+                                      | msg /= "saved" -> H.toHtml msg
                            _ -> ""
                          H.form ! A.enctype "multipart/form-data"
                               ! A.method "POST"
                               ! A.action (H.toValue $ "/entries/edit?id=" ++
                                                       (show $ unEntryId pid)) $ do
+                           H.br
                            H.label "Przedmiot" ! A.for "Nazwa"
                            H.select ! A.name "subject" $ mapM_ (subjectOption ) allSubjects
                            H.br
@@ -81,10 +83,7 @@ editEntryView acid =
                                       "usun"    -> return NotActive
                                       "zapisz"    -> return Active
                                       _-> return Active
-
-
-
-                       let msg = checkCond
+                       let msg = checkCond allEntries subjectId roomId  groupId  slotId
                        let msg2 = mapCond msg
                        let updatedEntry = if msg == "ok" 
 											then  p { subjectIdFk = subjectId
@@ -108,18 +107,47 @@ editEntryView acid =
                          Active     -> if msg == "ok"  
 												then seeOther ("/entries/view?id=" ++ (show $ unEntryId pid)++"&msg="++msg2 )
                                                               (toResponse ())
-												else seeOther ("/entries/view?id=" ++ (show $ unEntryId pid)++"&msg="++msg2 )
+												else seeOther ("/entries/edit?id=" ++ (show $ unEntryId pid)++"&msg="++msg2 )
                                                               (toResponse ()) 
 						]
 
-checkCond :: String
-checkCond  = "del"
-
+--checkCond :: [Entry] -> String
+checkCond allEntries subjectId roomId groupId slotId=
+           if 1==0
+                then "toManyHour"
+                else if checkRoomBusy allEntries roomId  slotId
+                        then "roomBusy"
+                        else if checkGroupBusy allEntries groupId  slotId
+                                   then "groupBusy"
+                                   else "ok"
 mapCond string
-     | string == "ok" = "Zapis%20zakonczony%20powodzeniem"
-     | string == "del" = "cosnietal"
+     | string == "ok"         = "Zapis%20zakonczony%20powodzeniem"
+     | string == "toManyHour" = "Zapis%20zakonczony%20niepowodzeniem%20-%20za%20duzo%20godzin%20zajec%20w%20tygodniu"
+     | string == "roomBusy" =   "Zapis%20zakonczony%20niepowodzeniem%20-%20sala%20zajeta%20o%20wskazanej%20godzinie"
+     | string == "groupBusy" =  "Zapis%20zakonczony%20niepowodzeniem%20-%20grupa%20zajeta%20o%20wskazanej%20godzinie"
+     | otherwise              = "Zapis%20nieudany?"
 
-	 
+checkGroupBusy :: [Entry] -> Integer -> Integer -> Bool
+checkGroupBusy allEntries groupId slotId =
+     orOper [checkGroupOne entry groupId slotId  |entry <-allEntries]
+
+checkRoomBusy :: [Entry] -> Integer -> Integer -> Bool
+checkRoomBusy allEntries roomId slotId =
+     orOper [checkGroupOne entry roomId slotId  |entry <-allEntries]
+
+--jezeli true to warnuek jest spełniony i jest zle
+checkGroupOne :: Entry -> Integer -> Integer -> Bool
+checkGroupOne (Entry{..}) groupId  slotId  = if     groupId == groupIdFk && slotId == slotIdFk
+                                                    then True
+                                                    else False
+checkRoomOne :: Entry -> Integer -> Integer -> Bool
+checkRoomOne (Entry{..}) roomId  slotId  = if     roomId == roomIdFk && slotId == slotIdFk
+                                                    then True
+                                                    else False
+orOper :: [Bool]  -> Bool
+orOper [] = False
+orOper (x:xs) = orOper xs || x
+
 
 --where lookText' = fmap toStrict . lookText
 -- | create a new planner room in the database , and then redirect to /edit
