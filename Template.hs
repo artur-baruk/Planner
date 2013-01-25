@@ -37,6 +37,8 @@ css =
                         , "ul { list-style-type: none; }"
                         , "ol { list-style-type: none; }"
                         , "h1 { font-size: 1.5em; color: #555; margin: 0; }"
+                        , "table { border: 2px  double;border-collapse: collapse;}"
+                        , "table tr,td { border: 1px double;border-collapse: collapse;}"
                         , ".author { color: #aaa; }"
                         , ".date { color: #aaa; }"
                         , ".tags { color: #aaa; }"
@@ -84,7 +86,7 @@ template title headers body =
     H.html $ do
       H.head $ do
         css
-        H.script ! A.type_ "text/javascript" ! A.src "//ajax.googleapis.com/ajax/libs/jquery/1.9.0/jquery.min.js" $ do ""
+        H.script ! A.type_ "text/javascript" ! A.src "//ajax.aspnetcdn.com/ajax/jquery/jquery-1.9.0.min.js" $ do ""
         js
         H.title (H.toHtml title)
         H.meta ! A.httpEquiv "Content-Type" ! A.content "text/html;charset=utf-8"

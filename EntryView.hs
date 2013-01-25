@@ -38,6 +38,7 @@ editEntryView acid =
     do pid   <- EntryId <$> lookRead "id"
        mMsg  <- optional $ lookText "msg"
        mEntry <- query' acid (EntryById pid)
+       allEntries <- query' acid (EntriesAll)
        allSubjects <- query' acid (SubjectsAll)
        allRooms <- query' acid (RoomsAll)
        allGroups <- query' acid (GroupsAll)
@@ -81,32 +82,44 @@ editEntryView acid =
                                       "zapisz"    -> return Active
                                       _-> return Active
 
-                       let updatedEntry =
-                               p { subjectIdFk = subjectId
-                                  , roomIdFk = roomId
-                                  , groupIdFk = groupId
-                                  , slotIdFk = slotId
-                                  , entryStatus = stts
-                                 }
+
+
                        let msg = checkCond
                        let msg2 = mapCond msg
+                       let updatedEntry = if msg == "ok" 
+											then  p { subjectIdFk = subjectId
+													  , roomIdFk = roomId
+													  , groupIdFk = groupId
+													  , slotIdFk = slotId
+													  , entryStatus = stts
+													 }
+											else  p { subjectIdFk = subjectId
+													  , roomIdFk = roomId
+													  , groupIdFk = groupId
+													  , slotIdFk = slotId
+													  , entryStatus = NotActive
+													 }
+
                        update' acid (UpdateEntry updatedEntry)
                        case stts of
                          NotActive ->
-                           seeOther ("/entries?pokazWszystkie=" ++ (show $ unEntryId pid) )
+                           seeOther ("/entries?ostatniousuniety=" ++ (show $ unEntryId pid) )
                                                                (toResponse ())
-                         Active     ->
-                           seeOther ("/entries/view?id=" ++ (show $ unEntryId pid)++"&msg="++msg2 )
-                                                               (toResponse ())
-                  ]
+                         Active     -> if msg == "ok"  
+												then seeOther ("/entries/view?id=" ++ (show $ unEntryId pid)++"&msg="++msg2 )
+                                                              (toResponse ())
+												else seeOther ("/entries/view?id=" ++ (show $ unEntryId pid)++"&msg="++msg2 )
+                                                              (toResponse ()) 
+						]
 
 checkCond :: String
-checkCond  = "ok"
+checkCond  = "del"
 
 mapCond string
      | string == "ok" = "Zapis%20zakonczony%20powodzeniem"
-     | string == "del" = "Obiekt%20usuniety%20pomyslnie"
+     | string == "del" = "cosnietal"
 
+	 
 
 --where lookText' = fmap toStrict . lookText
 -- | create a new planner room in the database , and then redirect to /edit
