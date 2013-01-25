@@ -90,7 +90,6 @@ editEntryView acid =
                                  }
                        let msg = checkCond
                        let msg2 = mapCond msg
-
                        update' acid (UpdateEntry updatedEntry)
                        case stts of
                          NotActive ->
