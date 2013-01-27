@@ -50,6 +50,7 @@ route acid =
             , dirs "subjects/edit"  $ editSubjectView acid
             , dirs "subjects/new"    $ newSubjectView acid
             , dirs "subjects/view"  $ viewSubject acid
+            , dirs "subjects/infoHours"   $ subjectInfoHours acid
             , dirs "subjects/info"   $ subjectInfo acid
             , dirs "subjects"        $ showSubjects acid
             , dirs "groups/edit"  $ editGroupView acid

@@ -72,7 +72,11 @@ js =
                         , "var currentId = $(this).attr('id');"
                         , "$.ajax({  url: '/groups/info?id='+currentId, dataType : 'text',  async: false ,  success: function( data ) { resp = data}});"
                         , "$(this).html(resp);});"
-                        , "});"						
+                        , "if( $('.subjectSelect').is('*')){ $.ajax({  url: '/subjects/infoHours?id='+$('.subjectSelect').val(), dataType : 'text',  async: false ,  success: function( data ) { $('.hoursPerWeek').val(data)}});}"
+                        , "$('.subjectSelect').on('change', function() {\n\
+                                                     \   $.ajax({  url: '/subjects/infoHours?id='+this.value, dataType : 'text',  async: false ,  success: function( data ) { $('.hoursPerWeek').val(data)}});\n\
+                                                     \});"
+                        , "});"
                         ]
     in H.script ! A.type_ "text/javascript" $ H.toHtml s	
 	
@@ -87,6 +91,7 @@ template title headers body =
       H.head $ do
         css
         H.script ! A.type_ "text/javascript" ! A.src "//ajax.aspnetcdn.com/ajax/jquery/jquery-1.9.0.min.js" $ do ""
+        H.script ! A.type_ "text/javascript" ! A.src "//jzaefferer.github.com/jquery-validation/jquery.validate.js" $ do ""
         js
         H.title (H.toHtml title)
         H.meta ! A.httpEquiv "Content-Type" ! A.content "text/html;charset=utf-8"

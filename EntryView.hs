@@ -20,7 +20,7 @@ import Data.Text.Lazy       (toStrict)
 import qualified Data.Text  as Text
 import Data.Time            (UTCTime(..), getCurrentTime)
 import Happstack.Server     ( ServerPart, Method(POST, HEAD, GET), Response, decodeBody
-                            , defaultBodyPolicy, dir, dirs, look, lookRead, lookText, method
+                            , defaultBodyPolicy, dir, dirs, look,lookReads, lookRead,lookText', lookText,lookInput, method
                             , notFound, nullConf, nullDir, ok, seeOther, simpleHTTP
                             , toResponse)
 import Happstack.Server.RqData (RqData, look, getDataFn)
@@ -60,7 +60,13 @@ editEntryView acid =
                                                       (show $ unEntryId pid)) $ do
                            H.br
                            H.label "Przedmiot" ! A.for "Nazwa"
-                           H.select ! A.name "subject" $ mapM_ (subjectOption ) allSubjects
+                           H.select ! A.name "subject" ! A.class_  "subjectSelect" $ mapM_ (subjectOption ) allSubjects
+                           H.input ! A.name "hoursPerWeek"
+                                   ! A.id "hoursPerWeek"
+                                   ! A.class_ "hoursPerWeek"
+                                   ! A.type_ "number"
+                                   ! A.style "display:none;"
+
                            H.br
                            H.label "Sala" ! A.for "Nazwa"
                            H.select ! A.name "room" $ mapM_ (roomOption ) allRooms
@@ -75,6 +81,7 @@ editEntryView acid =
                            H.button ! A.name "status" ! A.value "usun" $ "usun"
                   , do method POST
                        subjectId   <- lookRead "subject"
+                       hoursPerWeek <- lookRead "hoursPerWeek"
                        roomId   <- lookRead "room"
                        groupId   <- lookRead "group"
                        slotId   <- lookRead "slot"
@@ -83,7 +90,8 @@ editEntryView acid =
                                       "usun"    -> return NotActive
                                       "zapisz"    -> return Active
                                       _-> return Active
-                       let msg = checkCond allEntries subjectId roomId  groupId  slotId
+                       let oldEntryId  = pid
+                       let msg = checkCond oldEntryId allEntries subjectId roomId  groupId  slotId hoursPerWeek
                        let msg2 = mapCond msg
                        let updatedEntry = if msg == "ok" 
 											then  p { subjectIdFk = subjectId
@@ -111,41 +119,57 @@ editEntryView acid =
                                                               (toResponse ()) 
 						]
 
---checkCond :: [Entry] -> String
-checkCond allEntries subjectId roomId groupId slotId=
-           if checkHoursSubject allEntries  subjectId
+checkCond :: EntryId -> [Entry] -> Integer ->Integer ->Integer ->Integer ->Integer ->String
+checkCond oldEntryId allEntries subjectId roomId groupId slotId  hoursPerWeek =
+       do  let hoursPerDay = 8
+           if checkHoursSubject allEntries  hoursPerWeek subjectId groupId oldEntryId
                 then "toManyHourSubject"
-                else if checkRoomBusy allEntries roomId  slotId
-                        then "roomBusy"
-                        else if checkGroupBusy allEntries groupId  slotId
-                                   then "groupBusy"
-                                   else "ok"
+                else if 1==0  --checkHoursPerDay
+                     then "toManyHoursPerDay"
+                     else  if checkRoomBusy allEntries roomId  slotId oldEntryId
+                                    then "roomBusy"
+                                    else if checkGroupBusy allEntries groupId  slotId  oldEntryId
+                                               then "groupBusy"
+                                               else "ok"
 mapCond string
      | string == "ok"         = "Zapis%20zakonczony%20powodzeniem"
-     | string == "toManyHourSubject" = "Zapis%20zakonczony%20niepowodzeniem%20-%20za%20duzo%20godzin%20zajec%20w%20tygodniu"
+     | string == "toManyHourSubject" = "Zapis%20zakonczony%20niepowodzeniem%20-przemiot%20ma%20za%20duzo%20godzin%20zajec%20w%20tygodniu"
+     | string == "toManyHoursPerDay" = "Zapis%20zakonczony%20niepowodzeniem%20-grupa%20ma%20za%20duzo%20godzin%20zajec%20w%20ciagu%20dnia"
      | string == "roomBusy" =   "Zapis%20zakonczony%20niepowodzeniem%20-%20sala%20zajeta%20o%20wskazanej%20godzinie"
      | string == "groupBusy" =  "Zapis%20zakonczony%20niepowodzeniem%20-%20grupa%20zajeta%20o%20wskazanej%20godzinie"
      | otherwise              = "Zapis%20nieudany?"
 
 
-checkHoursSubject :: [Entry] -> Integer-> Bool
-checkHoursSubject allEntries subjectId= False
 
-checkGroupBusy :: [Entry] -> Integer -> Integer -> Bool
-checkGroupBusy allEntries groupId slotId =
-     orOper [checkGroupOne entry groupId slotId  |entry <-allEntries]
 
-checkRoomBusy :: [Entry] -> Integer -> Integer -> Bool
-checkRoomBusy allEntries roomId slotId =
-     orOper [checkGroupOne entry roomId slotId  |entry <-allEntries]
+--checkHoursSubject :: [Entry] -> Integer-> Integer-> Bool
+checkHoursSubject allEntries hoursPerWeek subjectId groupId oldEntryId=
+     if sum [checkHoursSubjectOne entry subjectId groupId oldEntryId |entry <-allEntries] >=  hoursPerWeek
+                    then True
+                    else False
+
+--checkHoursSubjectOne :: Entry ->  Integer ->Integer
+checkHoursSubjectOne (Entry{..})  subjectId groupId oldEntryId =   if     groupId == groupIdFk && subjectId == subjectIdFk  && oldEntryId  /=entryId
+                                                                                                  then 1
+                                                                                                  else 0
+
+
+
+--checkGroupBusy :: [Entry] -> Integer -> Integer -> Bool
+checkGroupBusy allEntries groupId slotId oldEntryId=
+     orOper [checkGroupOne entry groupId slotId oldEntryId |entry <-allEntries]
+
+--checkRoomBusy :: [Entry] -> Integer -> Integer -> Bool
+checkRoomBusy allEntries roomId slotId oldEntryId=
+     orOper [checkGroupOne entry roomId slotId oldEntryId |entry <-allEntries]
 
 --jezeli true to warnuek jest spełniony i jest zle
-checkGroupOne :: Entry -> Integer -> Integer -> Bool
-checkGroupOne (Entry{..}) groupId  slotId  = if     groupId == groupIdFk && slotId == slotIdFk
+--checkGroupOne :: Entry -> Integer -> Integer -> Bool
+checkGroupOne (Entry{..}) groupId  slotId  oldEntryId= if     groupId == groupIdFk && slotId == slotIdFk  && oldEntryId  /=entryId
                                                     then True
                                                     else False
-checkRoomOne :: Entry -> Integer -> Integer -> Bool
-checkRoomOne (Entry{..}) roomId  slotId  = if     roomId == roomIdFk && slotId == slotIdFk
+--checkRoomOne :: Entry -> Integer -> Integer -> Bool
+checkRoomOne (Entry{..}) roomId  slotId  oldEntryId= if     roomId == roomIdFk && slotId == slotIdFk && oldEntryId  /=entryId
                                                     then True
                                                     else False
 orOper :: [Bool]  -> Bool
@@ -187,6 +211,7 @@ entryHtml (Entry{..}) =
 				 H.span $ " "
 				 H.span $ H.a ! A.href (H.toValue $ "/entries/edit?id=" ++
 										show (unEntryId entryId)) $ "Edytuj wpis"
+
 
 
 
@@ -259,4 +284,16 @@ entryHtml2 x (Entry{..})  =
 						  ! A.id (H.toValue subjectIdFk) $ do  "pusty przedmiot"
 		else	""
 		
-		
+--
+--automaticPlan :: AcidState Planner -> ServerPart Response
+--automaticPlan acid =
+--    do pid   <- EntryId <$> lookRead "id"
+--       mMsg  <- optional $ lookText "msg"
+--       mEntry <- query' acid (EntryById pid)
+--       case mEntry of
+--         Nothing ->
+--             notFound $ template "no such room" [] $ do "Nie Mozna odnalezc sali o ID: "
+--                                                        H.toHtml (unEntryId pid)
+--         (Just p@(Entry{..})) ->
+--                do method POST
+--                       seeOther ("/entries?planTable" )

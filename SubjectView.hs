@@ -48,6 +48,7 @@ editSubjectView acid =
                            _ -> ""
                          H.form ! A.enctype "multipart/form-data"
                               ! A.method "POST"
+                              ! A.onsubmit "if (isNaN($('#hoursPerWeek').val() / 1) != false){alert('Liczba godzin w tygodniu musi miec wartosc numeryczna'); return false;}else {return true;}"
                               ! A.action (H.toValue $ "/subjects/edit?id=" ++
                                                       (show $ unSubjectId pid)) $ do
                            H.label "Nazwa" ! A.for "Nazwa"
@@ -141,4 +142,19 @@ subjectInfo acid =
 subjectHtml2  :: Subject -> Html
 subjectHtml2 (Subject{..}) =
     (H.toHtml subjectName)
+
+subjectInfoHours :: AcidState Planner -> ServerPart Response
+subjectInfoHours acid =
+    do pid <- SubjectId <$> lookRead "id"
+       mSubject <- query' acid (SubjectById pid)
+       case mSubject of
+         Nothing ->
+             ok $ toResponse $ H.div "Nie znaleziona przedmiotu"
+         (Just p) ->
+             ok $ toResponse $ (subjectHtml2Hours p)
+
+
+subjectHtml2Hours  :: Subject -> Html
+subjectHtml2Hours (Subject{..}) =
+    (H.toHtml hoursPerWeek)
 
