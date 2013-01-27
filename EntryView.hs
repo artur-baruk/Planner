@@ -285,15 +285,88 @@ entryHtml2 x (Entry{..})  =
 		else	""
 		
 --
---automaticPlan :: AcidState Planner -> ServerPart Response
---automaticPlan acid =
---    do pid   <- EntryId <$> lookRead "id"
---       mMsg  <- optional $ lookText "msg"
---       mEntry <- query' acid (EntryById pid)
---       case mEntry of
---         Nothing ->
---             notFound $ template "no such room" [] $ do "Nie Mozna odnalezc sali o ID: "
---                                                        H.toHtml (unEntryId pid)
---         (Just p@(Entry{..})) ->
---                do method POST
---                       seeOther ("/entries?planTable" )
+automaticPlan :: AcidState Planner -> ServerPart Response
+automaticPlan acid =
+    do pid   <- EntryId <$> lookRead "id"
+       mMsg  <- optional $ lookText "msg"
+       mEntry <- query' acid (EntryById pid)
+       allEntries <- query' acid (EntriesByStatus Active)
+       allSubjects <- query' acid (SubjectsAll)
+       allRooms <- query' acid (RoomsAll)
+       allGroups <- query' acid (GroupsAll)
+       allSlots <- query' acid (SlotsAll)
+       case mEntry of
+         Nothing ->
+             notFound $ template "no such room" [] $ do "Nie Mozna odnalezc sali o ID: "
+                                                        H.toHtml (unEntryId pid)
+         (Just p@(Entry{..})) ->
+             msum [ do method GET
+                       ok $ template "foo" [] $ do
+                         case mMsg of
+                           (Just msg) | msg == "saved" -> "Zmiany zapisane!"
+                                      | msg /= "saved" -> H.toHtml msg
+                           _ -> ""
+                         H.form ! A.enctype "multipart/form-data"
+                              ! A.method "POST"
+                              ! A.action (H.toValue $ "/entries/edit?id=" ++
+                                                      (show $ unEntryId pid)) $ do
+                           H.br
+                           H.label "Przedmiot" ! A.for "Nazwa"
+                           H.select ! A.name "subject" ! A.class_  "subjectSelect" $ mapM_ (subjectOption ) allSubjects
+                           H.input ! A.name "hoursPerWeek"
+                                   ! A.id "hoursPerWeek"
+                                   ! A.class_ "hoursPerWeek"
+                                   ! A.type_ "number"
+                                   ! A.style "display:none;"
+
+                           H.br
+                           H.label "Sala" ! A.for "Nazwa"
+                           H.select ! A.name "room" $ mapM_ (roomOption ) allRooms
+                           H.br
+                           H.label "Grupa" ! A.for "Nazwa"
+                           H.select ! A.name "group" $ mapM_ (groupOption ) allGroups
+                           H.br
+                           H.label "Godzina" ! A.for "Nazwa"
+                           H.select ! A.name "slot" $ mapM_ (slotOption ) allSlots
+                           H.br
+                           H.button ! A.name "status" ! A.value "zapisz" $ "zapisz"
+                           H.button ! A.name "status" ! A.value "usun" $ "usun"
+                  , do method POST
+                       subjectId   <- lookRead "subject"
+                       hoursPerWeek <- lookRead "hoursPerWeek"
+                       roomId   <- lookRead "room"
+                       groupId   <- lookRead "group"
+                       slotId   <- lookRead "slot"
+                       stts  <- do s <- lookText "status"
+                                   case s of
+                                      "usun"    -> return NotActive
+                                      "zapisz"    -> return Active
+                                      _-> return Active
+                       let oldEntryId  = pid
+                       let msg = checkCond oldEntryId allEntries subjectId roomId  groupId  slotId hoursPerWeek
+                       let msg2 = mapCond msg
+                       let updatedEntry = if msg == "ok"
+											then  p { subjectIdFk = subjectId
+													  , roomIdFk = roomId
+													  , groupIdFk = groupId
+													  , slotIdFk = slotId
+													  , entryStatus = stts
+													 }
+											else  p { subjectIdFk = subjectId
+													  , roomIdFk = roomId
+													  , groupIdFk = groupId
+													  , slotIdFk = slotId
+													  , entryStatus = NotActive
+													 }
+
+                       update' acid (UpdateEntry updatedEntry)
+                       case stts of
+                         NotActive ->
+                           seeOther ("/entries?ostatniousuniety=" ++ (show $ unEntryId pid) )
+                                                               (toResponse ())
+                         Active     -> if msg == "ok"
+												then seeOther ("/entries/view?id=" ++ (show $ unEntryId pid)++"&msg="++msg2 )
+                                                              (toResponse ())
+												else seeOther ("/entries/edit?id=" ++ (show $ unEntryId pid)++"&msg="++msg2 )
+                                                              (toResponse ())
+						]

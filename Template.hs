@@ -123,5 +123,5 @@ template title headers body =
                        ! A.action "/entries/new" $ H.button $ "Dodaj wpis do planu"
          H.li $ H.form ! A.enctype "multipart/form-data"
                        ! A.method "POST"
-                       ! A.action "/plan/automatic" $ H.button $ "Automatyczne układanie planu"
+                       ! A.action "/auto" $ H.button $ "Automatyczne układanie planu"
         body

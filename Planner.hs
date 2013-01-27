@@ -73,6 +73,7 @@ route acid =
             , dirs "entries/view"  $ viewEntry acid
 			, dirs "entries"        $ showEntries acid
 			, dirs "planTable"      $ planTable acid
+			, dirs "auto"      $ automaticPlan acid
 			, dirs "settings"	$ viewSettings acid
             , nullDir               >> mainPage acid
             ]
